@@ -59,6 +59,7 @@ drivers_tests = [
 	'realtek',
 	'realtek-5816',
     'focaltech_moc',
+    'mafpmoc',
 ]
 
 if get_option('introspection')
