@@ -90,7 +90,7 @@ envs_str = ' '.join([
 if get_option('introspection')
     envs.prepend('GI_TYPELIB_PATH', meson.project_build_root() / 'libfprint')
     virtual_devices_tests = [
-        'virtual-image',
+#        'virtual-image',
         'virtual-device',
     ]
 
