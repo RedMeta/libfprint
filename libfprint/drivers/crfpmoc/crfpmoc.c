@@ -884,22 +884,18 @@ crfpmoc_enroll_run_state(FpiSsm *ssm, FpDevice *device)
   switch (fpi_ssm_get_cur_state(ssm))
   {
   case ENROLL_SENSOR_ENROLL:
-    fp_err("Enroll sensor enroll");
     handle_enroll_sensor_enroll(ssm, self);
     break;
 
   case ENROLL_WAIT_FINGER:
-    fp_err("Enroll wait finger");
     handle_enroll_wait_finger(device, self);
     break;
 
   case ENROLL_SENSOR_CHECK:
-    fp_err("Enroll sensor check");
     handle_enroll_sensor_check(ssm, device, self, enroll_print);
     break;
 
   case ENROLL_COMMIT:
-    fp_err("Enroll commit");
     handle_enroll_commit(ssm, device, self, enroll_print);
     break;
   }
@@ -914,11 +910,9 @@ crfpmoc_enroll(FpDevice *device)
   FpiDeviceCrfpMoc *self = FPI_DEVICE_CRFPMOC(device);
   EnrollPrint *enroll_print = g_new0(EnrollPrint, 1);
 
-  fp_err("Enroll");
 
   r = crfpmoc_set_keys(self, &error);
 
-  fp_err("keys set");
 
   if (!r)
   {
@@ -934,7 +928,6 @@ crfpmoc_enroll(FpDevice *device)
   fpi_ssm_set_data(self->task_ssm, g_steal_pointer(&enroll_print), g_free);
   fpi_ssm_start(self->task_ssm, crfpmoc_task_ssm_done);
 
-  fp_err("started ssm");
 }
 
 static void
@@ -1001,12 +994,10 @@ handle_verify_upload_template(FpiSsm *ssm, FpDevice *device, FpiDeviceCrfpMoc *s
   if (!upload_successful)
   {
     fp_err("No template could be uploaded");
-    fpi_ssm_mark_failed(ssm, error);
+    // fpi_ssm_mark_failed(ssm, error);
   }
-  else
-  {
-    fpi_ssm_next_state(ssm);
-  }
+  
+  fpi_ssm_next_state(ssm);
 }
 
 static void
