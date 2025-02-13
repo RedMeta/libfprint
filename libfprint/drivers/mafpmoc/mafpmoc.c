@@ -1,5 +1,6 @@
 #define FP_COMPONENT "mafpmoc"
 
+#include "glib.h"
 #include "drivers_api.h"
 #include "mafpmoc.h"
 
@@ -422,7 +423,7 @@ mafp_sensor_cmd (FpiDeviceMafpmoc *self,
                  uint8_t           data_len,
                  SynCmdMsgCallback callback)
 {
-  g_autoptr(FpiUsbTransfer) transfer = alloc_cmd_transfer (self, cmd, (cmd < 0 ? 0 : 1), data, data_len);
+  g_autoptr(FpiUsbTransfer) transfer = alloc_cmd_transfer (self, cmd, 1, data, data_len);
 
   CommandData *cmd_data = g_new0 (CommandData, 1);
 
@@ -688,7 +689,7 @@ fp_enroll_tpl_table_cb (FpiDeviceMafpmoc    *self,
   if (resp->result == MAFP_SUCCESS)
     {
       mafp_load_enrolled_ids (self, resp);
-      self->enroll_id = -1;
+      self->enroll_id = G_MAXUINT16;
       for (uint16_t i = 0; i < sizeof (resp->tpl_table.list); i++)
         {
           if (!resp->tpl_table.list[i])
@@ -697,7 +698,7 @@ fp_enroll_tpl_table_cb (FpiDeviceMafpmoc    *self,
               break;
             }
         }
-      if (self->enroll_id < 0)
+      if (self->enroll_id == G_MAXUINT16)
         {
           mafp_mark_failed (dev, self->task_ssm, FP_DEVICE_ERROR_DATA_FULL,
                             "fingerprints total num reached max");
@@ -828,7 +829,7 @@ fp_enroll_verify_search_cb (FpiDeviceMafpmoc    *self,
     }
   else
     {
-      self->search_id = -1;
+      self->search_id = G_MAXUINT16;
       if (self->enroll_stage >= self->max_enroll_stage)
         fpi_ssm_jump_to_state (self->task_ssm, FP_ENROLL_SAVE_TEMPLATE_INFO);
       else
@@ -1590,7 +1591,7 @@ fp_verify_search_step_cb (FpiDeviceMafpmoc    *self,
               return;
             }
         }
-      self->search_id = -1;
+      self->search_id = G_MAXUINT16;
       fpi_ssm_jump_to_state (self->task_ssm, FP_VERIFY_GET_TEMPLATE_INFO);
     }
 }
@@ -1807,7 +1808,7 @@ fp_verify_sm_run_state (FpiSsm *ssm, FpDevice *device)
           fpi_device_get_verify_data (device, &print);
           if (!print)
             {
-              self->search_id = -1;
+              self->search_id = G_MAXUINT16;
               fpi_ssm_jump_to_state (self->task_ssm, FP_VERIFY_GET_TEMPLATE_INFO);
               break;
             }
@@ -1817,7 +1818,7 @@ fp_verify_sm_run_state (FpiSsm *ssm, FpDevice *device)
           fpi_device_get_identify_data (device, &prints);
           if (!prints || prints->len == 0)
             {
-              self->search_id = -1;
+              self->search_id = G_MAXUINT16;
               fpi_ssm_jump_to_state (self->task_ssm, FP_VERIFY_GET_TEMPLATE_INFO);
               break;
             }
@@ -1831,7 +1832,7 @@ fp_verify_sm_run_state (FpiSsm *ssm, FpDevice *device)
       break;
 
     case FP_VERIFY_GET_TEMPLATE_INFO:
-      if (self->search_id == -1)
+      if (self->search_id == G_MAXUINT16)
         {
           mafp_cmd_response_t resp;
           resp.result = 1;
