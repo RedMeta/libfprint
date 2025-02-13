@@ -756,16 +756,23 @@ fp_enroll_get_image_cb (FpiDeviceMafpmoc    *self,
                         GError              *error)
 {
   FpDevice *dev = FP_DEVICE (self);
+  FpEnrollState nextState = FP_ENROLL_VERIFY_GET_IMAGE;
 
-  if (fpi_device_action_is_cancelled (dev))
-    g_cancellable_set_error_if_cancelled (fpi_device_get_cancellable (dev), &error);
   if (error)
     {
       fpi_ssm_mark_failed (self->task_ssm, g_steal_pointer (&error));
       return;
     }
 
-  FpEnrollState nextState = FP_ENROLL_VERIFY_GET_IMAGE;
+  if (fpi_device_action_is_cancelled (dev))
+    {
+      GError *local_error = NULL;
+
+      g_cancellable_set_error_if_cancelled (fpi_device_get_cancellable (dev),
+                                            &local_error);
+      fpi_ssm_mark_failed (self->task_ssm, g_steal_pointer (&local_error));
+      return;
+    }
 
   if (self->press_state == MAFP_PRESS_WAIT_DOWN)
     {
@@ -1391,15 +1398,23 @@ fp_verify_get_image_cb (FpiDeviceMafpmoc    *self,
                         GError              *error)
 {
   FpDevice *dev = FP_DEVICE (self);
+  FpVerifyState nextState = FP_VERIFY_GET_IMAGE;
 
-  if (fpi_device_action_is_cancelled (dev))
-    g_cancellable_set_error_if_cancelled (fpi_device_get_cancellable (dev), &error);
   if (error)
     {
       fpi_ssm_mark_failed (self->task_ssm, g_steal_pointer (&error));
       return;
     }
-  FpVerifyState nextState = FP_VERIFY_GET_IMAGE;
+
+  if (fpi_device_action_is_cancelled (dev))
+    {
+      GError *local_error = NULL;
+
+      g_cancellable_set_error_if_cancelled (fpi_device_get_cancellable (dev),
+                                            &local_error);
+      fpi_ssm_mark_failed (self->task_ssm, g_steal_pointer (&local_error));
+      return;
+    }
 
   if (self->press_state == MAFP_PRESS_WAIT_DOWN)
     {
@@ -1483,13 +1498,22 @@ fp_verify_get_tpl_info_cb (FpiDeviceMafpmoc    *self,
   FpPrint *matching = NULL;
   mafp_template_t tpl;
 
-  if (fpi_device_action_is_cancelled (dev))
-    g_cancellable_set_error_if_cancelled (fpi_device_get_cancellable (dev), &error);
   if (error)
     {
       fpi_ssm_mark_failed (self->task_ssm, g_steal_pointer (&error));
       return;
     }
+
+  if (fpi_device_action_is_cancelled (dev))
+    {
+      GError *local_error = NULL;
+
+      g_cancellable_set_error_if_cancelled (fpi_device_get_cancellable (dev),
+                                            &local_error);
+      fpi_ssm_mark_failed (self->task_ssm, g_steal_pointer (&local_error));
+      return;
+    }
+
   fp_dbg ("result: %d", resp->result);
 
   if (resp->result == MAFP_SUCCESS)
