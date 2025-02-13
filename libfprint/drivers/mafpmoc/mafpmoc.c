@@ -249,12 +249,13 @@ fp_cmd_receive_cb (FpiUsbTransfer *transfer,
 
   if (error)
     {
-      fp_dbg ("error: %d", error->code);
+      fp_dbg ("error: %d, %s", error->code, error->message);
       if (data->cmd_force_pass) /* ex: G_USB_DEVICE_ERROR_TIMED_OUT */
         {
           if (data->callback)
             data->callback (self, &cmd_reponse, NULL);
           fpi_ssm_mark_completed (transfer->ssm);
+          g_clear_error (&error);
           return;
         }
       fpi_ssm_mark_failed (transfer->ssm, error);
@@ -583,7 +584,10 @@ fp_init_module_status_cb (FpiDeviceMafpmoc    *self,
                           GError              *error)
 {
   if (error)
-    resp->result = 0xff;
+    {
+      resp->result = 0xff;
+      g_clear_error (&error);
+    }
 
   fp_dbg ("result: %d", resp->result);
 
@@ -1171,9 +1175,13 @@ fp_enroll_wait_int_cb (FpiUsbTransfer *transfer,
     {
       fp_dbg ("code %d", error->code);
       if (error->code == G_USB_DEVICE_ERROR_TIMED_OUT)
-        fpi_ssm_jump_to_state (self->task_ssm, FP_ENROLL_VERIFY_GET_IMAGE);
-      else
-        fpi_ssm_mark_failed (self->task_ssm, error);
+        {
+          fpi_ssm_jump_to_state (self->task_ssm, FP_ENROLL_VERIFY_GET_IMAGE);
+          g_clear_error (&error);
+          return;
+        }
+
+      fpi_ssm_mark_failed (self->task_ssm, g_steal_pointer (&error));
       return;
     }
   fp_dbg ("actual_length %zd", transfer->actual_length);
@@ -1208,7 +1216,16 @@ fp_empty_cb (FpiDeviceMafpmoc    *self,
              mafp_cmd_response_t *resp,
              GError              *error)
 {
-  fp_dbg ("result: %d", resp ? resp->result : -1);
+  if (error)
+    {
+      fp_dbg ("error: %s", error->message);
+      g_clear_error (&error);
+    }
+  else
+    {
+      fp_dbg ("result: %d", resp ? resp->result : -1);
+    }
+
   fpi_ssm_next_state (self->task_ssm);
 }
 
@@ -1564,7 +1581,9 @@ mafp_get_startup_result_cb (FpiUsbTransfer *transfer,
 
   if (error)
     {
+      fp_dbg ("error: %s", error->message);
       fpi_ssm_next_state (transfer->ssm);
+      g_clear_error (&error);
       return;
     }
   if (transfer->actual_length >= 5)
@@ -1662,9 +1681,13 @@ fp_verify_wait_int_cb (FpiUsbTransfer *transfer,
     {
       fp_dbg ("code %d", error->code);
       if (error->code == G_USB_DEVICE_ERROR_TIMED_OUT)
-        fpi_ssm_jump_to_state (self->task_ssm, FP_VERIFY_GET_IMAGE);
-      else
-        fpi_ssm_mark_failed (self->task_ssm, error);
+        {
+          fpi_ssm_jump_to_state (self->task_ssm, FP_VERIFY_GET_IMAGE);
+          g_clear_error (&error);
+          return;
+        }
+
+      fpi_ssm_mark_failed (self->task_ssm, g_steal_pointer (&error));
       return;
     }
   fp_dbg ("actual_length %zd", transfer->actual_length);
