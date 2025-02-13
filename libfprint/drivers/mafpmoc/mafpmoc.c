@@ -11,23 +11,23 @@ struct _FpiDeviceMafpmoc
   FpiUsbTransfer   *cmd_transfer;
   gboolean          cmd_cancelable;
   gboolean          cmd_force_pass;
-  gint              enroll_stage;
-  gint              max_enroll_stage;
-  gint              max_stored_prints;
-  guint8            interface_num;
-  guint8            press_state;
-  gint32            finger_status;
-  gchar            *serial_number;
-  gint16            enroll_id;
-  gchar            *enroll_user_id;
-  guint             enroll_identify_index;
-  guint16           enroll_identify_id;
-  guint8            enroll_identify_state;
-  guint8            enroll_dupl_del_state;
-  guint8            enroll_dupl_area_state;
+  int               enroll_stage;
+  int               max_enroll_stage;
+  int               max_stored_prints;
+  uint8_t           interface_num;
+  uint8_t           press_state;
+  uint32_t          finger_status;
+  char             *serial_number;
+  uint16_t          enroll_id;
+  char             *enroll_user_id;
+  unsigned          enroll_identify_index;
+  uint16_t          enroll_identify_id;
+  uint8_t           enroll_identify_state;
+  uint8_t           enroll_dupl_del_state;
+  uint8_t           enroll_dupl_area_state;
   pmafp_templates_t templates;
-  gint16            search_id;
-  guint             capture_cnt;
+  uint16_t          search_id;
+  unsigned          capture_cnt;
   FpPrint          *identify_new_print;
   FpPrint          *identify_match_print;
 };
@@ -40,28 +40,25 @@ typedef void (*SynCmdMsgCallback) (FpiDeviceMafpmoc    *self,
 
 typedef struct
 {
-  gint16            cmd;
+  uint16_t          cmd;
   SynCmdMsgCallback callback;
   FpiUsbTransfer   *cmd_transfer;
   gboolean          cmd_cancelable;
-  guint16           cmd_request_len;
-  guint16           cmd_actual_len;
+  uint16_t          cmd_request_len;
+  uint16_t          cmd_actual_len;
   uint8_t           recv_buffer[MAFP_USB_BUFFER_SIZE];
   gboolean          cmd_force_pass;
-  guint16           crc;
+  uint16_t          crc;
 } CommandData;
 
 static void mafp_sensor_cmd (FpiDeviceMafpmoc *self,
-                             gint16            cmd,
-                             const guint8     *data,
-                             guint8            data_len,
+                             uint16_t          cmd,
+                             const uint8_t    *data,
+                             uint8_t           data_len,
                              SynCmdMsgCallback callback);
 
 static uint16_t
-ma_protocol_crc16_calc (
-  uint8_t *data,
-  uint32_t data_len,
-  uint32_t start)
+ma_protocol_crc16_calc ( uint8_t *data, uint32_t data_len, uint32_t start)
 {
   const uint8_t *temp = data;
   uint32_t sum = 0;
@@ -75,9 +72,7 @@ ma_protocol_crc16_calc (
 }
 
 static void
-init_pack_header (
-  ppack_header pheader,
-  uint16_t     frame_len)
+init_pack_header (ppack_header pheader, uint16_t frame_len)
 {
   g_assert (pheader);
 
@@ -97,12 +92,11 @@ init_pack_header (
  *      while cmd_len = 0, put flag(end or not) in data[0]
  */
 static uint8_t *
-ma_protocol_build_package (
-  uint32_t       package_len,
-  int16_t        cmd,
-  uint8_t        cmd_len,
-  const uint8_t *data,
-  uint32_t       data_len)
+ma_protocol_build_package (uint32_t       package_len,
+                           int16_t        cmd,
+                           uint8_t        cmd_len,
+                           const uint8_t *data,
+                           uint32_t       data_len)
 {
   g_autofree uint8_t *ppackage = g_new0 (uint8_t, package_len);
   pack_header header;
@@ -124,23 +118,13 @@ ma_protocol_build_package (
   ppackage[package_len - 2] = (crc >> 8) & 0xFF;
   ppackage[package_len - 1] = crc & 0xFF;
 
-/* gchar msg[1024] = {0};
-   gchar pack_str[16] = {0};
-   for (int i = 0; i < package_len; i++)
-    {
-      sprintf(pack_str, "0x%x ", ppackage[i]);
-      strcat(msg, pack_str);
-    }
-   fp_dbg("build pack %s", msg);
- */
   return g_steal_pointer (&ppackage);
 }
 
 static int
-ma_protocol_parse_header (
-  uint8_t     *buffer,
-  uint32_t     buffer_len,
-  pack_header *pheader)
+ma_protocol_parse_header (  uint8_t     *buffer,
+                            uint32_t     buffer_len,
+                            pack_header *pheader)
 {
   if (!buffer || !pheader || buffer_len < PACKAGE_HEADER_SIZE)
     return -1;
@@ -150,19 +134,17 @@ ma_protocol_parse_header (
 }
 
 static uint8_t
-get_one_bit_value (
-  uint8_t src,
-  uint8_t bit_num)
+get_one_bit_value (  uint8_t src,
+                     uint8_t bit_num)
 {
   return (uint8_t) ((src >> (bit_num - 1)) & 1);
 }
 
 static int
-ma_protocol_parse_body (
-  int16_t              cmd,
-  uint8_t             *buffer,
-  uint16_t             buffer_len,
-  pmafp_cmd_response_t presp)
+ma_protocol_parse_body (  int16_t              cmd,
+                          uint8_t             *buffer,
+                          uint16_t             buffer_len,
+                          pmafp_cmd_response_t presp)
 {
   const int data_len = buffer_len - 1 - PACKAGE_CRC_SIZE;
 
@@ -231,11 +213,10 @@ mafp_clean_usb_bulk_in (FpDevice *device)
 }
 
 static G_GNUC_PRINTF (4, 5) void
-mafp_mark_failed (
-  FpDevice *dev,
-  FpiSsm *ssm,
-  guint8 err_code,
-  const gchar *msg, ...)
+mafp_mark_failed (  FpDevice *dev,
+                    FpiSsm *ssm,
+                    uint8_t err_code,
+                    const char *msg, ...)
 {
   if (err_code == FP_DEVICE_ERROR_PROTO)
     mafp_clean_usb_bulk_in (dev);
@@ -265,12 +246,11 @@ fp_cmd_receive_cb (FpiUsbTransfer *transfer,
   mafp_cmd_response_t cmd_reponse = {0, };
   pack_header header;
   uint32_t data_index = 0;
-  gchar msg[1024] = {0};
 
   if (error)
     {
       fp_dbg ("error: %d", error->code);
-      if (data->cmd_force_pass) //ex: G_USB_DEVICE_ERROR_TIMED_OUT
+      if (data->cmd_force_pass) /* ex: G_USB_DEVICE_ERROR_TIMED_OUT */
         {
           if (data->callback)
             data->callback (self, &cmd_reponse, NULL);
@@ -287,8 +267,6 @@ fp_cmd_receive_cb (FpiUsbTransfer *transfer,
       return;
     }
   ssm_state = fpi_ssm_get_cur_state (transfer->ssm);
-
-  //fp_dbg("actual_length: %d", transfer->actual_length);
 
   /* skip zero length package */
   if (transfer->actual_length == 0)
@@ -315,13 +293,6 @@ fp_cmd_receive_cb (FpiUsbTransfer *transfer,
     }
   memcpy (data->recv_buffer + data->cmd_actual_len, transfer->buffer, transfer->actual_length);
   data->cmd_actual_len += transfer->actual_length - data_index;
-  if (PRINT_CMD)
-    {
-      for (int i = 0; i < PACKAGE_HEADER_SIZE + data->cmd_actual_len && i < 1024; i++)
-        sprintf (msg + i * 3, "%02X ", data->recv_buffer[i]);
-      fp_dbg ("RECV: %s", msg);
-    }
-  // fp_dbg("cmd_request_len: %d, cmd_actual_len: %d", data->cmd_request_len, data->cmd_actual_len);
 
   if (data->cmd_request_len <= data->cmd_actual_len)
     {
@@ -359,7 +330,6 @@ fp_cmd_run_state (FpiSsm   *ssm,
 {
   FpiUsbTransfer *transfer;
   CommandData *data = fpi_ssm_get_data (ssm);
-  gchar msg[1024] = {0};
 
   switch (fpi_ssm_get_cur_state (ssm))
     {
@@ -367,12 +337,6 @@ fp_cmd_run_state (FpiSsm   *ssm,
       if (data->cmd_transfer)
         {
           data->cmd_transfer->ssm = ssm;
-          if (PRINT_CMD)
-            {
-              for (int i = 0; i < data->cmd_transfer->length && i < 1024; i++)
-                sprintf (msg + i * 3, "%02X ", data->cmd_transfer->buffer[i]);
-              fp_dbg ("SEND: %s", msg);
-            }
           fpi_usb_transfer_submit (g_steal_pointer (&data->cmd_transfer),
                                    CMD_TIMEOUT, NULL, fpi_ssm_usb_transfer_cb, NULL);
         }
@@ -434,17 +398,17 @@ fp_cmd_ssm_done_data_free (CommandData *data)
 
 static FpiUsbTransfer *
 alloc_cmd_transfer (FpiDeviceMafpmoc *self,
-                    gint16            cmd,
-                    guint8            cmd_len,
-                    const guint8     *data,
-                    guint32           data_len)
+                    uint16_t          cmd,
+                    uint8_t           cmd_len,
+                    const uint8_t    *data,
+                    uint32_t          data_len)
 {
   g_return_val_if_fail (data || data_len == 0, NULL);
   FpDevice *dev = FP_DEVICE (self);
 
   g_autoptr(FpiUsbTransfer) transfer = fpi_usb_transfer_new (dev);
   uint32_t total_len = PACKAGE_HEADER_SIZE + cmd_len + data_len + PACKAGE_CRC_SIZE;
-  guint8 *buffer = ma_protocol_build_package (total_len, cmd, cmd_len, data, data_len);
+  uint8_t *buffer = ma_protocol_build_package (total_len, cmd, cmd_len, data, data_len);
 
   fpi_usb_transfer_fill_bulk_full (transfer, MAFP_EP_BULK_OUT, buffer, total_len, g_free);
   return g_steal_pointer (&transfer);
@@ -452,9 +416,9 @@ alloc_cmd_transfer (FpiDeviceMafpmoc *self,
 
 static void
 mafp_sensor_cmd (FpiDeviceMafpmoc *self,
-                 gint16            cmd,
-                 const guint8     *data,
-                 guint8            data_len,
+                 uint16_t          cmd,
+                 const uint8_t    *data,
+                 uint8_t           data_len,
                  SynCmdMsgCallback callback)
 {
   g_autoptr(FpiUsbTransfer) transfer = alloc_cmd_transfer (self, cmd, (cmd < 0 ? 0 : 1), data, data_len);
@@ -479,11 +443,11 @@ mafp_sensor_cmd (FpiDeviceMafpmoc *self,
 
 static void
 mafp_sensor_control (FpiDeviceMafpmoc      *self,
-                     guint8                 request,
-                     guint16                value,
+                     uint8_t                request,
+                     uint16_t               value,
                      FpiUsbTransferCallback callback,
                      gpointer               user_data,
-                     guint16                timeout)
+                     uint16_t               timeout)
 {
   FpiUsbTransfer *transfer = fpi_usb_transfer_new (FP_DEVICE (self));
 
@@ -499,7 +463,7 @@ mafp_sensor_control (FpiDeviceMafpmoc      *self,
 static mafp_template_t
 mafp_template_from_print (FpPrint *print)
 {
-  const guint16 tpl_id;
+  const uint16_t tpl_id;
 
   g_autoptr(GVariant) data = NULL;
   g_autoptr(GVariant) tpl_uid = NULL;
@@ -531,8 +495,8 @@ mafp_print_from_template (FpiDeviceMafpmoc *self, mafp_template_t template)
   GVariant *data;
   GVariant *uid;
   GVariant *dev_sn;
-  guint user_id_len;
-  guint serial_num_len;
+  unsigned user_id_len;
+  unsigned serial_num_len;
 
   print = fp_print_new (FP_DEVICE (self));
 
@@ -560,8 +524,8 @@ static void
 mafp_load_enrolled_ids (FpiDeviceMafpmoc *self, mafp_cmd_response_t *resp)
 {
   uint16_t num = 0;
-  gchar msg[1024] = {0};
-  gchar id_str[16] = {0};
+  char msg[1024] = {0};
+  char id_str[16] = {0};
 
   for (uint16_t i = 0; i < sizeof (resp->tpl_table.list); i++)
     {
@@ -598,7 +562,7 @@ fp_init_handeshake_cb (FpiDeviceMafpmoc    *self,
       resp->handshake.code[1] == MAFP_HANDSHAKE_CODE2)
     {
       self->max_enroll_stage = DEFAULT_ENROLL_SAMPLES;
-      gchar * value = getenv (MAFP_ENV_ENROLL_SAMPLES);
+      char * value = getenv (MAFP_ENV_ENROLL_SAMPLES);
       if (value)
         self->max_enroll_stage = g_ascii_strtoll (value, NULL, 10);
       fp_dbg ("max_enroll_stage: %d", self->max_enroll_stage);
@@ -758,8 +722,8 @@ fp_enroll_read_tpl_cb (FpiDeviceMafpmoc    *self,
     }
   fp_dbg ("result: %d", resp->result);
 
-  guint8 *resp_buff = (guint8 *) resp;
-  guint16 max_id = 0;
+  uint8_t *resp_buff = (uint8_t *) resp;
+  uint16_t max_id = 0;
 
   if (resp->result == MAFP_SUCCESS)
     {
@@ -799,7 +763,6 @@ fp_enroll_get_image_cb (FpiDeviceMafpmoc    *self,
 
   FpEnrollState nextState = FP_ENROLL_VERIFY_GET_IMAGE;
 
-  //fp_dbg("result: %d, press_state: %d", resp->result, self->press_state);
   if (self->press_state == MAFP_PRESS_WAIT_DOWN)
     {
       fp_dbg ("wait finger down state %d", resp->result);
@@ -944,7 +907,7 @@ fp_enroll_gen_feature_cb (FpiDeviceMafpmoc    *self,
   if (self->enroll_dupl_area_state == MAFP_ENROLL_DUPLICATE_AREA_DENY)
     {
       int remain_stage = self->max_enroll_stage - self->enroll_stage;
-      //check duplicate area in last 3 times
+      /* check duplicate area in last 3 times */
       if (remain_stage > 0 && remain_stage <= 3)
         {
           fpi_ssm_next_state (self->task_ssm);
@@ -1010,10 +973,10 @@ fp_enroll_save_tpl_cb (FpiDeviceMafpmoc    *self,
   GVariant *uid = NULL;
   GVariant *data = NULL;
   GVariant *dev_sn;
-  guint user_id_len;
-  guint serial_num_len;
-  gchar *user_id = NULL;
-  gchar *serial_num = NULL;
+  unsigned user_id_len;
+  unsigned serial_num_len;
+  char *user_id = NULL;
+  char *serial_num = NULL;
 
   if (error)
     {
@@ -1092,7 +1055,7 @@ mafp_pwr_btn_shield_off_cb (FpiUsbTransfer *transfer,
       fpi_ssm_mark_failed (transfer->ssm, error);
       return;
     }
-  guint8 para = 0;
+  uint8_t para = 0;
 
   mafp_sensor_cmd (self, MOC_CMD_SLEEP, &para, 1, mafp_sleep_cb);
 }
@@ -1243,7 +1206,7 @@ fp_enroll_wait_int (FpiDeviceMafpmoc *self)
 static int
 load_fp_data (FpDevice *dev)
 {
-  const gchar *filename = NULL;
+  const char *filename = NULL;
   gboolean fp_exist = false;
   GDir *dir = g_dir_open (FPRINT_DATA_PATH, 0, NULL);
 
@@ -1259,11 +1222,11 @@ load_fp_data (FpDevice *dev)
     }
   while (NULL != (filename = g_dir_read_name (dir)))
     {
-      g_autofree gchar *user_path = g_strconcat (FPRINT_DATA_PATH, filename, NULL);
+      g_autofree char *user_path = g_strconcat (FPRINT_DATA_PATH, filename, NULL);
       if (g_file_test (user_path, G_FILE_TEST_IS_DIR))
         {
           FpDeviceClass *cls = FP_DEVICE_GET_CLASS (dev);
-          g_autofree gchar *module_path = g_strconcat (user_path, "/", cls->id, NULL);
+          g_autofree char *module_path = g_strconcat (user_path, "/", cls->id, NULL);
           fp_dbg ("found data path: %s", module_path);
           if (g_file_test (module_path, G_FILE_TEST_IS_DIR))
             {
@@ -1300,9 +1263,9 @@ mafp_check_empty (FpiDeviceMafpmoc *self)
       fpi_ssm_next_state (self->task_ssm);
       return 0;
     }
-  const gchar * str_ubuntu = "ubuntu";
+  const char * str_ubuntu = "ubuntu";
   GString *version = g_string_new (sysinfo.version);
-  gchar *sys_ver = g_string_ascii_down (version)->str;
+  char *sys_ver = g_string_ascii_down (version)->str;
 
   fp_dbg ("check system: %s", g_strrstr (sys_ver, str_ubuntu) ? "ubuntu" : "other");
   gboolean empty = (g_strrstr (sys_ver, str_ubuntu) && !load_fp_data (dev));
@@ -1324,7 +1287,7 @@ static void
 fp_enroll_sm_run_state (FpiSsm *ssm, FpDevice *device)
 {
   FpiDeviceMafpmoc *self = FPI_DEVICE_MAFPMOC (device);
-  guint8 para[PACKAGE_DATA_SIZE_MAX] = { 0 };
+  uint8_t para[PACKAGE_DATA_SIZE_MAX] = { 0 };
   FpPrint *print = NULL;
   uint16_t range = 1000;
 
@@ -1339,8 +1302,8 @@ fp_enroll_sm_run_state (FpiSsm *ssm, FpDevice *device)
       break;
 
     case FP_ENROLL_TEMPLATE_TABLE:
-      para[0] = 0;   //page no.
-      mafp_sensor_cmd (self, MOC_CMD_GET_TEMPLATE_TABLE, (const guint8 *) &para, 1, fp_enroll_tpl_table_cb);
+      para[0] = 0; /* page no. */
+      mafp_sensor_cmd (self, MOC_CMD_GET_TEMPLATE_TABLE, (const uint8_t *) &para, 1, fp_enroll_tpl_table_cb);
       break;
 
     case FP_ENROLL_READ_TEMPLATE:
@@ -1380,8 +1343,8 @@ fp_enroll_sm_run_state (FpiSsm *ssm, FpDevice *device)
       break;
 
     case FP_ENROLL_VERIFY_GENERATE_FEATURE:
-      para[0] = self->enroll_stage + 1;   //verify buffer id start from 1
-      mafp_sensor_cmd (self, MOC_CMD_GEN_FEATURE, (const guint8 *) &para, 1, fp_enroll_gen_feature_cb);
+      para[0] = self->enroll_stage + 1;   /* verify buffer id start from 1 */
+      mafp_sensor_cmd (self, MOC_CMD_GEN_FEATURE, (const uint8_t *) &para, 1, fp_enroll_gen_feature_cb);
       break;
 
     case FP_ENROLL_VERIFY_DUPLICATE_AREA:
@@ -1389,41 +1352,41 @@ fp_enroll_sm_run_state (FpiSsm *ssm, FpDevice *device)
       break;
 
     case FP_ENROLL_VERIFY_SEARCH:
-      para[0] = 1;                     //buffer id
-      para[1] = 0;                     //start id high
-      para[2] = 0;                     //start id low
-      para[3] = (range >> 8) & 0xff;   //range high
-      para[4] = range & 0xff;          //range low
-      mafp_sensor_cmd (self, MOC_CMD_SEARCH, (const guint8 *) &para, 5, fp_enroll_verify_search_cb);
+      para[0] = 1;                     /* buffer id */
+      para[1] = 0;                     /* start id high */
+      para[2] = 0;                     /* start id low */
+      para[3] = (range >> 8) & 0xff;   /* range high */
+      para[4] = range & 0xff;          /* range low */
+      mafp_sensor_cmd (self, MOC_CMD_SEARCH, (const uint8_t *) &para, 5, fp_enroll_verify_search_cb);
       break;
 
     case FP_ENROLL_GET_TEMPLATE_INFO:
-      para[0] = (self->search_id >> 8) & 0xff;   //fp id high
-      para[1] = self->search_id & 0xff;          //fp id low
-      mafp_sensor_cmd (self, MOC_CMD_GET_TEMPLATE_INFO, (const guint8 *) &para, 2, fp_enroll_get_tpl_info_cb);
+      para[0] = (self->search_id >> 8) & 0xff;   /* fp id high */
+      para[1] = self->search_id & 0xff;          /* fp id low */
+      mafp_sensor_cmd (self, MOC_CMD_GET_TEMPLATE_INFO, (const uint8_t *) &para, 2, fp_enroll_get_tpl_info_cb);
       break;
 
     case FP_ENROLL_SAVE_TEMPLATE_INFO:
       fpi_device_get_enroll_data (device, &print);
       self->enroll_user_id = fpi_print_generate_user_id (print);
-      para[0] = (self->enroll_id >> 8) & 0xff;   //fp id high
-      para[1] = self->enroll_id & 0xff;          //fp id low
+      para[0] = (self->enroll_id >> 8) & 0xff;   /* fp id high */
+      para[1] = self->enroll_id & 0xff;          /* fp id low */
       memcpy (para + 2, self->enroll_user_id, strlen (self->enroll_user_id));
       fp_dbg ("user_id: %s", self->enroll_user_id);
-      mafp_sensor_cmd (self, MOC_CMD_SAVE_TEMPLATE_INFO, (const guint8 *) &para, 2 + TEMPLATE_UID_SIZE, fp_enroll_save_tpl_info_cb);
+      mafp_sensor_cmd (self, MOC_CMD_SAVE_TEMPLATE_INFO, (const uint8_t *) &para, 2 + TEMPLATE_UID_SIZE, fp_enroll_save_tpl_info_cb);
       break;
 
     case FP_ENROLL_SAVE_TEMPLATE:
-      para[0] = 1;                               //buffer id
-      para[1] = (self->enroll_id >> 8) & 0xff;   //fp id high
-      para[2] = self->enroll_id & 0xff;          //fp id low
-      mafp_sensor_cmd (self, MOC_CMD_SAVE_TEMPLATE, (const guint8 *) &para, 3, fp_enroll_save_tpl_cb);
+      para[0] = 1;                               /* buffer id */
+      para[1] = (self->enroll_id >> 8) & 0xff;   /* fp id high */
+      para[2] = self->enroll_id & 0xff;          /* fp id low */
+      mafp_sensor_cmd (self, MOC_CMD_SAVE_TEMPLATE, (const uint8_t *) &para, 3, fp_enroll_save_tpl_cb);
       break;
 
     case FP_ENROLL_DELETE_TEMPLATE_INFO_IF_FAILED:
-      para[0] = (self->enroll_id >> 8) & 0xff;   //fp id high
-      para[1] = self->enroll_id & 0xff;          //fp id low
-      mafp_sensor_cmd (self, MOC_CMD_SAVE_TEMPLATE_INFO, (const guint8 *) &para, 130, fp_enroll_del_tpl_info_cb);
+      para[0] = (self->enroll_id >> 8) & 0xff;   /* fp id high */
+      para[1] = self->enroll_id & 0xff;          /* fp id low */
+      mafp_sensor_cmd (self, MOC_CMD_SAVE_TEMPLATE_INFO, (const uint8_t *) &para, 130, fp_enroll_del_tpl_info_cb);
       break;
 
     case FP_ENROLL_EXIT:
@@ -1486,7 +1449,6 @@ fp_verify_get_image_cb (FpiDeviceMafpmoc    *self,
     }
   FpVerifyState nextState = FP_VERIFY_GET_IMAGE;
 
-  //fp_dbg("result: %d, press_state: %d", resp->result, self->press_state);
   if (self->press_state == MAFP_PRESS_WAIT_DOWN)
     {
       fp_dbg ("wait finger down state %d", resp->result);
@@ -1801,7 +1763,7 @@ static void
 fp_verify_sm_run_state (FpiSsm *ssm, FpDevice *device)
 {
   FpiDeviceMafpmoc *self = FPI_DEVICE_MAFPMOC (device);
-  guint8 para[PACKAGE_DATA_SIZE_MAX] = { 0 };
+  uint8_t para[PACKAGE_DATA_SIZE_MAX] = { 0 };
   GPtrArray *prints = NULL;
   FpPrint *print = NULL;
 
@@ -1812,8 +1774,8 @@ fp_verify_sm_run_state (FpiSsm *ssm, FpDevice *device)
       break;
 
     case FP_VERIFY_TEMPLATE_TABLE:
-      para[0] = 0;   //page no.
-      mafp_sensor_cmd (self, MOC_CMD_GET_TEMPLATE_TABLE, (const guint8 *) &para, 1, fp_verify_tpl_table_cb);
+      para[0] = 0; /* page no. */
+      mafp_sensor_cmd (self, MOC_CMD_GET_TEMPLATE_TABLE, (const uint8_t *) &para, 1, fp_verify_tpl_table_cb);
       break;
 
     case FP_VERIFY_GET_STARTUP_RESULT:
@@ -1853,8 +1815,8 @@ fp_verify_sm_run_state (FpiSsm *ssm, FpDevice *device)
       break;
 
     case FP_VERIFY_GENERATE_FEATURE:
-      para[0] = 1;   //buffer id
-      mafp_sensor_cmd (self, MOC_CMD_GEN_FEATURE, (const guint8 *) &para, 1, fp_verify_gen_feature_cb);
+      para[0] = 1;  /* buffer id */
+      mafp_sensor_cmd (self, MOC_CMD_GEN_FEATURE, (const uint8_t *) &para, 1, fp_verify_gen_feature_cb);
       break;
 
     case FP_VERIFY_SEARCH_STEP:
@@ -1883,7 +1845,7 @@ fp_verify_sm_run_state (FpiSsm *ssm, FpDevice *device)
       self->search_id = tpl.id;
       para[0] = (tpl.id >> 8) & 0xff;
       para[1] = tpl.id & 0xff;
-      mafp_sensor_cmd (self, MOC_CMD_MATCH_WITHFID, (const guint8 *) &para, 2, fp_verify_search_step_cb);
+      mafp_sensor_cmd (self, MOC_CMD_MATCH_WITHFID, (const uint8_t *) &para, 2, fp_verify_search_step_cb);
       break;
 
     case FP_VERIFY_GET_TEMPLATE_INFO:
@@ -1895,9 +1857,9 @@ fp_verify_sm_run_state (FpiSsm *ssm, FpDevice *device)
         }
       else
         {
-          para[0] = (self->search_id >> 8) & 0xff;   //fp id high
-          para[1] = self->search_id & 0xff;          //fp id low
-          mafp_sensor_cmd (self, MOC_CMD_GET_TEMPLATE_INFO, (const guint8 *) &para, 2, fp_verify_get_tpl_info_cb);
+          para[0] = (self->search_id >> 8) & 0xff;   /* fp id high */
+          para[1] = self->search_id & 0xff;          /* fp id low */
+          mafp_sensor_cmd (self, MOC_CMD_GET_TEMPLATE_INFO, (const uint8_t *) &para, 2, fp_verify_get_tpl_info_cb);
         }
       break;
 
@@ -2004,19 +1966,19 @@ static void
 fp_list_run_state (FpiSsm *ssm, FpDevice *device)
 {
   FpiDeviceMafpmoc *self = FPI_DEVICE_MAFPMOC (device);
-  guint8 para[PACKAGE_DATA_SIZE_MAX] = { 0 };
+  uint8_t para[PACKAGE_DATA_SIZE_MAX] = { 0 };
 
   switch (fpi_ssm_get_cur_state (ssm))
     {
     case FP_LIST_TEMPLATE_TABLE:
-      para[0] = 0;   //page no.
-      mafp_sensor_cmd (self, MOC_CMD_GET_TEMPLATE_TABLE, (const guint8 *) &para, 1, fp_list_tpl_table_cb);
+      para[0] = 0;  /* page no. */
+      mafp_sensor_cmd (self, MOC_CMD_GET_TEMPLATE_TABLE, (const uint8_t *) &para, 1, fp_list_tpl_table_cb);
       break;
 
     case FP_LIST_GET_TEMPLATE_INFO:
-      para[0] = (self->templates->total_list[self->templates->index].id >> 8) & 0xff;   //fp id high
-      para[1] = self->templates->total_list[self->templates->index].id & 0xff;          //fp id low
-      mafp_sensor_cmd (self, MOC_CMD_GET_TEMPLATE_INFO, (const guint8 *) &para, 2, fp_list_get_tpl_info_cb);
+      para[0] = (self->templates->total_list[self->templates->index].id >> 8) & 0xff; /* fp id high */
+      para[1] = self->templates->total_list[self->templates->index].id & 0xff;        /* fp id low */
+      mafp_sensor_cmd (self, MOC_CMD_GET_TEMPLATE_INFO, (const uint8_t *) &para, 2, fp_list_get_tpl_info_cb);
       break;
     }
 }
@@ -2166,7 +2128,7 @@ static void
 fp_delete_run_state (FpiSsm *ssm, FpDevice *device)
 {
   FpiDeviceMafpmoc *self = FPI_DEVICE_MAFPMOC (device);
-  guint8 para[PACKAGE_DATA_SIZE_MAX] = { 0 };
+  uint8_t para[PACKAGE_DATA_SIZE_MAX] = { 0 };
   FpPrint *print = NULL;
 
   fpi_device_get_delete_data (device, &print);
@@ -2175,28 +2137,28 @@ fp_delete_run_state (FpiSsm *ssm, FpDevice *device)
   switch (fpi_ssm_get_cur_state (ssm))
     {
     case FP_DELETE_TEMPLATE_TABLE:
-      para[0] = 0;                             //page no.
-      mafp_sensor_cmd (self, MOC_CMD_GET_TEMPLATE_TABLE, (const guint8 *) &para, 1, fp_delete_tpl_table_cb);
+      para[0] = 0;                             /* page no. */
+      mafp_sensor_cmd (self, MOC_CMD_GET_TEMPLATE_TABLE, (const uint8_t *) &para, 1, fp_delete_tpl_table_cb);
       break;
 
     case FP_DELETE_GET_TEMPLATE_INFO:
-      para[0] = (delete_tpl.id >> 8) & 0xff;   //fp id high
-      para[1] = delete_tpl.id & 0xff;          //fp id low
-      mafp_sensor_cmd (self, MOC_CMD_GET_TEMPLATE_INFO, (const guint8 *) &para, 2, fp_delete_get_tpl_info_cb);
+      para[0] = (delete_tpl.id >> 8) & 0xff;   /* fp id high */
+      para[1] = delete_tpl.id & 0xff;          /* fp id low */
+      mafp_sensor_cmd (self, MOC_CMD_GET_TEMPLATE_INFO, (const uint8_t *) &para, 2, fp_delete_get_tpl_info_cb);
       break;
 
     case FP_DELETE_CLEAR_TEMPLATE_INFO:
-      para[0] = (delete_tpl.id >> 8) & 0xff;   //fp id high
-      para[1] = delete_tpl.id & 0xff;          //fp id low
-      mafp_sensor_cmd (self, MOC_CMD_SAVE_TEMPLATE_INFO, (const guint8 *) &para, 130, fp_delete_clear_tpl_info_cb);
+      para[0] = (delete_tpl.id >> 8) & 0xff;   /* fp id high */
+      para[1] = delete_tpl.id & 0xff;          /* fp id low */
+      mafp_sensor_cmd (self, MOC_CMD_SAVE_TEMPLATE_INFO, (const uint8_t *) &para, 130, fp_delete_clear_tpl_info_cb);
       break;
 
     case FP_DELETE_TEMPLATE:
-      para[0] = (delete_tpl.id >> 8) & 0xff;   //tpl id high
-      para[1] = delete_tpl.id & 0xff;          //tpl id low
-      para[2] = 0;                             //range high
-      para[3] = 1;                             //range low
-      mafp_sensor_cmd (self, MOC_CMD_DELETE_TEMPLATE, (const guint8 *) &para, 4, fp_delete_tpl_cb);
+      para[0] = (delete_tpl.id >> 8) & 0xff;   /* tpl id high */
+      para[1] = delete_tpl.id & 0xff;          /* tpl id low */
+      para[2] = 0;                             /* range high */
+      para[3] = 1;                             /* range low */
+      mafp_sensor_cmd (self, MOC_CMD_DELETE_TEMPLATE, (const uint8_t *) &para, 4, fp_delete_tpl_cb);
       break;
     }
 }
@@ -2272,14 +2234,14 @@ fp_delete_all_ssm_done (FpiSsm *ssm, FpDevice *dev, GError *error)
 static void
 mafp_probe (FpDevice *device)
 {
-  fp_dbg ("mafp_probe");
+  g_autoptr(GUsbInterface) interface = NULL;
   GUsbDevice *usb_dev;
   GError *error = NULL;
   FpiDeviceMafpmoc *self = FPI_DEVICE_MAFPMOC (device);
-  g_autofree gchar *serial = NULL;
+  g_autofree char *serial = NULL;
+  uint64_t driver_data;
 
-  g_autoptr(GUsbInterface) interface = NULL;
-  guint64 driver_data;
+  fp_dbg ("mafp_probe");
 
   usb_dev = fpi_device_get_usb_device (device);
   if (!g_usb_device_open (usb_dev, &error))
@@ -2346,7 +2308,7 @@ mafp_init (FpDevice *device)
   fp_dbg ("mafp_init");
   FpiDeviceMafpmoc *self = FPI_DEVICE_MAFPMOC (device);
   GError *error = NULL;
-  guint64 driver_data;
+  uint64_t driver_data;
 
   driver_data = fpi_device_get_driver_data (device);
   fp_dbg ("driver_data 0x%zx", driver_data);
