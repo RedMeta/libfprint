@@ -465,7 +465,7 @@ mafp_sensor_control (FpiDeviceMafpmoc      *self,
 static mafp_template_t
 mafp_template_from_print (FpPrint *print)
 {
-  const uint16_t tpl_id;
+  const uint16_t tpl_id = 0;
 
   g_autoptr(GVariant) data = NULL;
   g_autoptr(GVariant) tpl_uid = NULL;
