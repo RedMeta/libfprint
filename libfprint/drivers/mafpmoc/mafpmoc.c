@@ -214,10 +214,11 @@ mafp_clean_usb_bulk_in (FpDevice *device)
 }
 
 static G_GNUC_PRINTF (4, 5) void
-mafp_mark_failed (  FpDevice *dev,
-                    FpiSsm *ssm,
-                    uint8_t err_code,
-                    const char *msg, ...)
+mafp_mark_failed (FpDevice   *dev,
+                  FpiSsm     *ssm,
+                  uint8_t     err_code,
+                  const char *msg,
+                  ...)
 {
   if (err_code == FP_DEVICE_ERROR_PROTO)
     mafp_clean_usb_bulk_in (dev);
