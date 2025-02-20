@@ -491,7 +491,7 @@ mafp_template_from_print (FpPrint *print)
 }
 
 static FpPrint *
-mafp_print_from_template (FpiDeviceMafpmoc *self, mafp_template_t template)
+mafp_print_from_template (FpiDeviceMafpmoc *self, mafp_template_t *template)
 {
   FpPrint *print;
   GVariant *data;
@@ -502,22 +502,22 @@ mafp_print_from_template (FpiDeviceMafpmoc *self, mafp_template_t template)
 
   print = fp_print_new (FP_DEVICE (self));
 
-  user_id_len = strlen (template.uid);
+  user_id_len = strlen (template->uid);
   user_id_len = MIN (TEMPLATE_UID_SIZE, user_id_len);
-  uid = g_variant_new_fixed_array (G_VARIANT_TYPE_BYTE, template.uid, user_id_len, 1);
+  uid = g_variant_new_fixed_array (G_VARIANT_TYPE_BYTE, template->uid, user_id_len, 1);
 
   serial_num_len = strlen (self->serial_number);
   dev_sn = g_variant_new_fixed_array (G_VARIANT_TYPE_BYTE, self->serial_number, serial_num_len, 1);
-  fp_dbg ("print: %d/%s/%s", template.id, template.uid, self->serial_number);
+  fp_dbg ("print: %d/%s/%s", template->id, template->uid, self->serial_number);
 
-  data = g_variant_new ("(q@ay@ay)", template.id, uid, dev_sn);
+  data = g_variant_new ("(q@ay@ay)", template->id, uid, dev_sn);
 
   fpi_print_set_type (print, FPI_PRINT_RAW);
   fpi_print_set_device_stored (print, true);
-  g_object_set (print, "description", template.uid, NULL);
+  g_object_set (print, "description", template->uid, NULL);
   g_object_set (print, "fpi-data", data, NULL);
 
-  fpi_print_fill_from_user_id (print, template.uid);
+  fpi_print_fill_from_user_id (print, template->uid);
 
   return print;
 }
@@ -859,7 +859,7 @@ fp_enroll_get_tpl_info_cb (FpiDeviceMafpmoc    *self,
         {
           tpl.id = self->search_id;
           memcpy (tpl.uid, resp->tpl_info.uid, sizeof (resp->tpl_info.uid));
-          print = mafp_print_from_template (self, tpl);
+          print = mafp_print_from_template (self, &tpl);
           mafp_mark_failed (dev, self->task_ssm, FP_DEVICE_ERROR_DATA_DUPLICATE,
                             "Finger was already enrolled as '%s'", fp_print_get_description (print));
           return;
@@ -1523,7 +1523,7 @@ fp_verify_get_tpl_info_cb (FpiDeviceMafpmoc    *self,
         {
           tpl.id = self->search_id;
           memcpy (tpl.uid, resp->tpl_info.uid, sizeof (resp->tpl_info.uid));
-          new_scan = mafp_print_from_template (self, tpl);
+          new_scan = mafp_print_from_template (self, &tpl);
         }
       if (new_scan != NULL)
         {
@@ -1927,13 +1927,17 @@ fp_list_get_tpl_info_cb (FpiDeviceMafpmoc    *self,
 
   if (resp->result == MAFP_SUCCESS)
     {
-      memcpy (self->templates->total_list[self->templates->index].uid,
-              resp->tpl_info.uid, sizeof (resp->tpl_info.uid));
+      fp_dbg ("tpl_info: %s", resp->tpl_info.uid);
 
-      FpPrint *print = mafp_print_from_template (self,
-                                                 self->templates->total_list[self->templates->index]);
+      if (resp->tpl_info.uid[0] == 'F' && resp->tpl_info.uid[1] == 'P')
+        {
+          FpPrint *print;
+          mafp_template_t *template = &self->templates->total_list[self->templates->index];
 
-      g_ptr_array_add (self->templates->list, g_object_ref_sink (print));
+          memcpy (template->uid, resp->tpl_info.uid, sizeof (resp->tpl_info.uid));
+          print = mafp_print_from_template (self, template);
+          g_ptr_array_add (self->templates->list, g_object_ref_sink (print));
+        }
     }
   if (++self->templates->index < self->templates->total_num)
     {
@@ -2001,6 +2005,7 @@ fp_delete_tpl_table_cb (FpiDeviceMafpmoc    *self,
       mafp_load_enrolled_ids (self, resp);
       fpi_device_get_delete_data (dev, &print);
       mafp_template_t tpl = mafp_template_from_print (print);
+
       for (int i = 0; i < self->templates->total_num; i++)
         {
           if (self->templates->total_list[i].id == tpl.id)
