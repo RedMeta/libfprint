@@ -844,8 +844,6 @@ fp_enroll_get_tpl_info_cb (FpiDeviceMafpmoc    *self,
                            GError              *error)
 {
   FpDevice *dev = FP_DEVICE (self);
-  mafp_template_t tpl;
-  FpPrint *print;
 
   if (error)
     {
@@ -858,9 +856,13 @@ fp_enroll_get_tpl_info_cb (FpiDeviceMafpmoc    *self,
     {
       if (resp->tpl_info.uid[0] == 'F' && resp->tpl_info.uid[1] == 'P')
         {
+          g_autoptr(FpPrint) print = NULL;
+          mafp_template_t tpl;
+
           tpl.id = self->search_id;
           memcpy (tpl.uid, resp->tpl_info.uid, sizeof (resp->tpl_info.uid));
           print = mafp_print_from_template (self, &tpl);
+
           mafp_mark_failed (dev, self->task_ssm, FP_DEVICE_ERROR_DATA_DUPLICATE,
                             "Finger was already enrolled as '%s'", fp_print_get_description (print));
           return;
@@ -1498,7 +1500,6 @@ fp_verify_get_tpl_info_cb (FpiDeviceMafpmoc    *self,
   FpDevice *dev = FP_DEVICE (self);
   FpPrint *new_scan = NULL;
   FpPrint *matching = NULL;
-  mafp_template_t tpl;
 
   if (error)
     {
@@ -1522,6 +1523,8 @@ fp_verify_get_tpl_info_cb (FpiDeviceMafpmoc    *self,
     {
       if (resp->tpl_info.uid[0] == 'F' && resp->tpl_info.uid[1] == 'P')
         {
+          mafp_template_t tpl;
+
           tpl.id = self->search_id;
           memcpy (tpl.uid, resp->tpl_info.uid, sizeof (resp->tpl_info.uid));
           new_scan = mafp_print_from_template (self, &tpl);
