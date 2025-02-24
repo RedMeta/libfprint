@@ -83,7 +83,7 @@ init_pack_header (ppack_header pheader, uint16_t frame_len)
   pheader->addr1 = 0xFF;
   pheader->addr2 = 0xFF;
   pheader->addr3 = 0xFF;
-  pheader->flag = (uint8_t) PACK_CMD;
+  pheader->flag = (uint8_t) MAPF_PACK_CMD;
   pheader->frame_len0 = (frame_len >> 8) & 0xff;
   pheader->frame_len1 = frame_len & 0xff;
 }
@@ -277,10 +277,10 @@ fp_cmd_receive_cb (FpiUsbTransfer *transfer,
       return;
     }
 
-  if (ssm_state == FP_CMD_RECEIVE)
+  if (ssm_state == MAPF_CMD_RECEIVE)
     {
       ret = ma_protocol_parse_header (transfer->buffer, transfer->actual_length, &header);
-      if (ret != 0 || header.flag != PACK_ANSWER)
+      if (ret != 0 || header.flag != MAPF_PACK_ANSWER)
         {
           mafp_mark_failed (device, transfer->ssm, FP_DEVICE_ERROR_PROTO, "Corrupted resp header received");
           return;
@@ -335,7 +335,7 @@ fp_cmd_run_state (FpiSsm   *ssm,
 
   switch (fpi_ssm_get_cur_state (ssm))
     {
-    case FP_CMD_SEND:
+    case MAPF_CMD_SEND:
       if (data->cmd_transfer)
         {
           data->cmd_transfer->ssm = ssm;
@@ -348,7 +348,7 @@ fp_cmd_run_state (FpiSsm   *ssm,
         }
       break;
 
-    case FP_CMD_RECEIVE:
+    case MAPF_CMD_RECEIVE:
       transfer = fpi_usb_transfer_new (dev);
       transfer->ssm = ssm;
       fpi_usb_transfer_fill_bulk (transfer, MAFP_EP_BULK_IN, MAFP_USB_BUFFER_SIZE);
@@ -359,7 +359,7 @@ fp_cmd_run_state (FpiSsm   *ssm,
                                fpi_ssm_get_data (ssm));
       break;
 
-    case FP_DATA_RECEIVE:
+    case MAPF_CMD_DATA_RECEIVE:
       fp_dbg ("req: %d, act: %d", data->cmd_request_len, data->cmd_actual_len);
       int req_len = MAFP_USB_BUFFER_SIZE;
       if (data->cmd_request_len > 0 && data->cmd_actual_len > 0 && (data->cmd_request_len > data->cmd_actual_len))
@@ -435,7 +435,7 @@ mafp_sensor_cmd (FpiDeviceMafpmoc *self,
   cmd_data->cmd_actual_len = 0;
   self->cmd_force_pass = FALSE;
 
-  self->cmd_ssm = fpi_ssm_new (FP_DEVICE (self), fp_cmd_run_state, FP_TRANSFER_STATES);
+  self->cmd_ssm = fpi_ssm_new (FP_DEVICE (self), fp_cmd_run_state, MAPF_CMD_TRANSFER_STATES);
   if (!PRINT_SSM_DEBUG)
     fpi_ssm_silence_debug (self->cmd_ssm);
   fpi_ssm_set_data (self->cmd_ssm, cmd_data, (GDestroyNotify) fp_cmd_ssm_done_data_free);
@@ -619,29 +619,29 @@ fp_init_run_state (FpiSsm *ssm, FpDevice *device)
 
   switch (fpi_ssm_get_cur_state (ssm))
     {
-    case FP_INIT_CLEAN_EPIN:
+    case MAPF_INIT_CLEAN_EPIN:
       transfer = fpi_usb_transfer_new (device);
       fpi_usb_transfer_fill_bulk (transfer, MAFP_EP_BULK_IN, MAFP_USB_BUFFER_SIZE);
       fpi_usb_transfer_submit (transfer, 100, NULL, fp_init_clean_epin_cb, NULL);
       break;
 
-    case FP_INIT_CLEAN_EPOUT:
+    case MAPF_INIT_CLEAN_EPOUT:
       transfer = fpi_usb_transfer_new (device);
       fpi_usb_transfer_fill_bulk (transfer, MAFP_EP_BULK_OUT, MAFP_USB_BUFFER_SIZE);
       fpi_usb_transfer_submit (transfer, 100, NULL, fp_init_clean_epout_cb, NULL);
       break;
 
-    case FP_INIT_CLEAN_EPIN2:
+    case MAPF_INIT_CLEAN_EPIN2:
       transfer = fpi_usb_transfer_new (device);
       fpi_usb_transfer_fill_bulk (transfer, MAFP_EP_BULK_IN, MAFP_USB_BUFFER_SIZE);
       fpi_usb_transfer_submit (transfer, 100, NULL, fp_init_clean_epin_cb, NULL);
       break;
 
-    case FP_INIT_HANDSHAKE:
+    case MAPF_INIT_HANDSHAKE:
       mafp_sensor_cmd (self, MOC_CMD_HANDSHAKE, NULL, 0, fp_init_handeshake_cb);
       break;
 
-    case FP_INIT_MODULE_STATUS:
+    case MAPF_INIT_MODULE_STATUS:
       self->cmd_force_pass = TRUE;
       mafp_sensor_cmd (self, MOC_CMD_GET_INIT_STATUS, NULL, 0, fp_init_module_status_cb);
       break;
@@ -751,7 +751,7 @@ fp_enroll_get_image_cb (FpiDeviceMafpmoc    *self,
 {
   g_autoptr(GError) local_error = NULL;
   FpDevice *dev = FP_DEVICE (self);
-  FpEnrollState nextState = FP_ENROLL_VERIFY_GET_IMAGE;
+  MapfEnrollState nextState = MAFP_ENROLL_VERIFY_GET_IMAGE;
 
   if (error)
     {
@@ -771,16 +771,16 @@ fp_enroll_get_image_cb (FpiDeviceMafpmoc    *self,
       fp_dbg ("wait finger down state %d", resp->result);
       if (resp->result == MAFP_RE_GET_IMAGE_SUCCESS)
         {
-          nextState = FP_ENROLL_VERIFY_GENERATE_FEATURE;
+          nextState = MAFP_ENROLL_VERIFY_GENERATE_FEATURE;
         }
       else if (resp->result == MAFP_RE_GET_IMAGE_NONE)
         {
           self->capture_cnt++;
           fp_dbg ("capture_cnt %d", self->capture_cnt);
           if (self->capture_cnt > MAFP_IMAGE_ERR_TRRIGER)
-            nextState = FP_ENROLL_REFRESH_INT_PARA;
+            nextState = MAFP_ENROLL_REFRESH_INT_PARA;
           else
-            nextState = FP_ENROLL_DETECT_MODE;
+            nextState = MAFP_ENROLL_DETECT_MODE;
         }
     }
   else if (self->press_state == MAFP_PRESS_WAIT_UP)
@@ -788,13 +788,13 @@ fp_enroll_get_image_cb (FpiDeviceMafpmoc    *self,
       fp_dbg ("wait finger up state %d", resp->result);
       if (resp->result == MAFP_RE_GET_IMAGE_SUCCESS)
         {
-          nextState = FP_ENROLL_VERIFY_GET_IMAGE;
+          nextState = MAFP_ENROLL_VERIFY_GET_IMAGE;
         }
       else if (resp->result == MAFP_RE_GET_IMAGE_NONE)
         {
           self->press_state = MAFP_PRESS_WAIT_DOWN;
           fpi_device_report_finger_status (dev, FP_FINGER_STATUS_NONE | FP_FINGER_STATUS_NEEDED);
-          nextState = FP_ENROLL_CHECK_INT_PARA;
+          nextState = MAFP_ENROLL_CHECK_INT_PARA;
         }
     }
   fpi_ssm_jump_to_state (self->task_ssm, nextState);
@@ -816,15 +816,15 @@ fp_enroll_verify_search_cb (FpiDeviceMafpmoc    *self,
     {
       self->search_id = ((resp->search.id[0] & 0xff) << 8) | (resp->search.id[1] & 0xff);
       fp_dbg ("search_id: %d", self->search_id);
-      fpi_ssm_jump_to_state (self->task_ssm, FP_ENROLL_GET_TEMPLATE_INFO);
+      fpi_ssm_jump_to_state (self->task_ssm, MAFP_ENROLL_GET_TEMPLATE_INFO);
     }
   else
     {
       self->search_id = G_MAXUINT16;
       if (self->enroll_stage >= fp_device_get_nr_enroll_stages (FP_DEVICE (self)))
-        fpi_ssm_jump_to_state (self->task_ssm, FP_ENROLL_SAVE_TEMPLATE_INFO);
+        fpi_ssm_jump_to_state (self->task_ssm, MAFP_ENROLL_SAVE_TEMPLATE_INFO);
       else
-        fpi_ssm_jump_to_state (self->task_ssm, FP_ENROLL_VERIFY_GET_IMAGE);
+        fpi_ssm_jump_to_state (self->task_ssm, MAFP_ENROLL_VERIFY_GET_IMAGE);
     }
 }
 
@@ -860,9 +860,9 @@ fp_enroll_get_tpl_info_cb (FpiDeviceMafpmoc    *self,
         }
     }
   if (self->enroll_stage >= fp_device_get_nr_enroll_stages (FP_DEVICE (self)))
-    fpi_ssm_jump_to_state (self->task_ssm, FP_ENROLL_SAVE_TEMPLATE_INFO);
+    fpi_ssm_jump_to_state (self->task_ssm, MAFP_ENROLL_SAVE_TEMPLATE_INFO);
   else
-    fpi_ssm_jump_to_state (self->task_ssm, FP_ENROLL_VERIFY_GET_IMAGE);
+    fpi_ssm_jump_to_state (self->task_ssm, MAFP_ENROLL_VERIFY_GET_IMAGE);
 }
 
 static void
@@ -880,21 +880,21 @@ fp_enroll_once_complete_cb (FpiDeviceMafpmoc    *self,
       if (self->enroll_identify_state == MAFP_ENROLL_IDENTIFY_DISABLED)
         {
           if (self->enroll_stage >= fp_device_get_nr_enroll_stages (FP_DEVICE (self)))
-            fpi_ssm_jump_to_state (self->task_ssm, FP_ENROLL_SAVE_TEMPLATE_INFO);
+            fpi_ssm_jump_to_state (self->task_ssm, MAFP_ENROLL_SAVE_TEMPLATE_INFO);
           else
-            fpi_ssm_jump_to_state (self->task_ssm, FP_ENROLL_VERIFY_GET_IMAGE);
+            fpi_ssm_jump_to_state (self->task_ssm, MAFP_ENROLL_VERIFY_GET_IMAGE);
           return;
         }
       if (self->enroll_identify_state == MAFP_ENROLL_IDENTIFY_ONCE)
         self->enroll_identify_state = MAFP_ENROLL_IDENTIFY_DISABLED;
-      fpi_ssm_jump_to_state (self->task_ssm, FP_ENROLL_VERIFY_SEARCH);
+      fpi_ssm_jump_to_state (self->task_ssm, MAFP_ENROLL_VERIFY_SEARCH);
     }
   else
     {
       self->press_state = MAFP_PRESS_WAIT_UP;
       fpi_device_enroll_progress (dev, self->enroll_stage, NULL,
                                   fpi_device_retry_new (FP_DEVICE_RETRY_GENERAL));
-      fpi_ssm_jump_to_state (self->task_ssm, FP_ENROLL_VERIFY_GET_IMAGE);
+      fpi_ssm_jump_to_state (self->task_ssm, MAFP_ENROLL_VERIFY_GET_IMAGE);
     }
 }
 
@@ -1014,7 +1014,7 @@ fp_enroll_save_tpl_cb (FpiDeviceMafpmoc    *self,
       g_object_set (print, "description", user_id, NULL);
       g_object_set (print, "fpi-data", data, NULL);
 
-      fpi_ssm_jump_to_state (self->task_ssm, FP_ENROLL_EXIT);
+      fpi_ssm_jump_to_state (self->task_ssm, MAFP_ENROLL_EXIT);
       return;
     }
   fpi_ssm_next_state (self->task_ssm);
@@ -1136,7 +1136,7 @@ fp_enroll_int_refresh_cb (FpiDeviceMafpmoc    *self,
       return;
     }
   self->capture_cnt = 0;
-  fpi_ssm_jump_to_state (self->task_ssm, FP_ENROLL_VERIFY_GET_IMAGE);
+  fpi_ssm_jump_to_state (self->task_ssm, MAFP_ENROLL_VERIFY_GET_IMAGE);
 }
 
 static void
@@ -1164,7 +1164,7 @@ fp_enroll_disable_int_cb (FpiUsbTransfer *transfer,
       fpi_ssm_mark_failed (transfer->ssm, g_steal_pointer (&error));
       return;
     }
-  fpi_ssm_jump_to_state (transfer->ssm, FP_ENROLL_VERIFY_GET_IMAGE);
+  fpi_ssm_jump_to_state (transfer->ssm, MAFP_ENROLL_VERIFY_GET_IMAGE);
 }
 
 static void
@@ -1180,7 +1180,7 @@ fp_enroll_wait_int_cb (FpiUsbTransfer *transfer,
       fp_dbg ("code %d", error->code);
       if (error->code == G_USB_DEVICE_ERROR_TIMED_OUT)
         {
-          fpi_ssm_jump_to_state (self->task_ssm, FP_ENROLL_VERIFY_GET_IMAGE);
+          fpi_ssm_jump_to_state (self->task_ssm, MAFP_ENROLL_VERIFY_GET_IMAGE);
           g_clear_error (&error);
           return;
         }
@@ -1249,65 +1249,65 @@ fp_enroll_sm_run_state (FpiSsm *ssm, FpDevice *device)
 
   switch(fpi_ssm_get_cur_state (ssm))
     {
-    case FP_ENROLL_PWR_BTN_SHIELD_ON:
+    case MAFP_ENROLL_PWR_BTN_SHIELD_ON:
       mafp_pwr_btn_shield_on (self, 1);
       break;
 
-    case FP_ENROLL_CHECK_EMPTY:
+    case MAFP_ENROLL_CHECK_EMPTY:
       mafp_check_empty (self);
       break;
 
-    case FP_ENROLL_TEMPLATE_TABLE:
+    case MAFP_ENROLL_TEMPLATE_TABLE:
       para[0] = 0; /* page no. */
       mafp_sensor_cmd (self, MOC_CMD_GET_TEMPLATE_TABLE, (const uint8_t *) &para, 1, fp_enroll_tpl_table_cb);
       break;
 
-    case FP_ENROLL_READ_TEMPLATE:
+    case MAFP_ENROLL_READ_TEMPLATE:
       mafp_sensor_cmd (self, MOC_CMD_GET_MAX_ID, NULL, 0, fp_enroll_read_tpl_cb);
       break;
 
-    case FP_ENROLL_VERIFY_GET_IMAGE:
+    case MAFP_ENROLL_VERIFY_GET_IMAGE:
       mafp_sensor_cmd (self, MOC_CMD_GET_IMAGE, NULL, 0, fp_enroll_get_image_cb);
       break;
 
-    case FP_ENROLL_CHECK_INT_PARA:
+    case MAFP_ENROLL_CHECK_INT_PARA:
       para[0] = MAFP_SLEEP_INT_CHECK;
       mafp_sensor_cmd (self, MOC_CMD_SLEEP, para, 1, fp_enroll_int_check_cb);
       break;
 
-    case FP_ENROLL_DETECT_MODE:
+    case MAFP_ENROLL_DETECT_MODE:
       para[0] = MAFP_SLEEP_INT_WAIT;
       mafp_sensor_cmd (self, MOC_CMD_SLEEP, para, 1, fp_enroll_int_detect_cb);
       break;
 
-    case FP_ENROLL_ENABLE_INT:
+    case MAFP_ENROLL_ENABLE_INT:
       mafp_sensor_control (self, 0x89, 1, fp_enroll_enable_int_cb, NULL, 0);
       break;
 
-    case FP_ENROLL_WAIT_INT:
+    case MAFP_ENROLL_WAIT_INT:
       fp_enroll_wait_int (self);
       break;
 
-    case FP_ENROLL_DISBALE_INT:
+    case MAFP_ENROLL_DISBALE_INT:
       mafp_sensor_control (self, 0x89, 0, fp_enroll_disable_int_cb, NULL, 0);
       break;
 
-    case FP_ENROLL_REFRESH_INT_PARA:
+    case MAFP_ENROLL_REFRESH_INT_PARA:
       fp_dbg ("refresh param");
       para[0] = MAFP_SLEEP_INT_REFRESH;
       mafp_sensor_cmd (self, MOC_CMD_SLEEP, para, 1, fp_enroll_int_refresh_cb);
       break;
 
-    case FP_ENROLL_VERIFY_GENERATE_FEATURE:
+    case MAFP_ENROLL_VERIFY_GENERATE_FEATURE:
       para[0] = self->enroll_stage + 1;   /* verify buffer id start from 1 */
       mafp_sensor_cmd (self, MOC_CMD_GEN_FEATURE, (const uint8_t *) &para, 1, fp_enroll_gen_feature_cb);
       break;
 
-    case FP_ENROLL_VERIFY_DUPLICATE_AREA:
+    case MAFP_ENROLL_VERIFY_DUPLICATE_AREA:
       mafp_sensor_cmd (self, MOC_CMD_DUPAREA_TEST, NULL, 0, fp_enroll_verify_duparea_cb);
       break;
 
-    case FP_ENROLL_VERIFY_SEARCH:
+    case MAFP_ENROLL_VERIFY_SEARCH:
       para[0] = 1;                     /* buffer id */
       para[1] = 0;                     /* start id high */
       para[2] = 0;                     /* start id low */
@@ -1316,13 +1316,13 @@ fp_enroll_sm_run_state (FpiSsm *ssm, FpDevice *device)
       mafp_sensor_cmd (self, MOC_CMD_SEARCH, (const uint8_t *) &para, 5, fp_enroll_verify_search_cb);
       break;
 
-    case FP_ENROLL_GET_TEMPLATE_INFO:
+    case MAFP_ENROLL_GET_TEMPLATE_INFO:
       para[0] = (self->search_id >> 8) & 0xff;   /* fp id high */
       para[1] = self->search_id & 0xff;          /* fp id low */
       mafp_sensor_cmd (self, MOC_CMD_GET_TEMPLATE_INFO, (const uint8_t *) &para, 2, fp_enroll_get_tpl_info_cb);
       break;
 
-    case FP_ENROLL_SAVE_TEMPLATE_INFO:
+    case MAFP_ENROLL_SAVE_TEMPLATE_INFO:
       fpi_device_get_enroll_data (device, &print);
       self->enroll_user_id = fpi_print_generate_user_id (print);
       para[0] = (self->enroll_id >> 8) & 0xff;   /* fp id high */
@@ -1332,20 +1332,20 @@ fp_enroll_sm_run_state (FpiSsm *ssm, FpDevice *device)
       mafp_sensor_cmd (self, MOC_CMD_SAVE_TEMPLATE_INFO, (const uint8_t *) &para, 2 + TEMPLATE_UID_SIZE, fp_enroll_save_tpl_info_cb);
       break;
 
-    case FP_ENROLL_SAVE_TEMPLATE:
+    case MAFP_ENROLL_SAVE_TEMPLATE:
       para[0] = 1;                               /* buffer id */
       para[1] = (self->enroll_id >> 8) & 0xff;   /* fp id high */
       para[2] = self->enroll_id & 0xff;          /* fp id low */
       mafp_sensor_cmd (self, MOC_CMD_SAVE_TEMPLATE, (const uint8_t *) &para, 3, fp_enroll_save_tpl_cb);
       break;
 
-    case FP_ENROLL_DELETE_TEMPLATE_INFO_IF_FAILED:
+    case MAFP_ENROLL_DELETE_TEMPLATE_INFO_IF_FAILED:
       para[0] = (self->enroll_id >> 8) & 0xff;   /* fp id high */
       para[1] = self->enroll_id & 0xff;          /* fp id low */
       mafp_sensor_cmd (self, MOC_CMD_SAVE_TEMPLATE_INFO, (const uint8_t *) &para, 130, fp_enroll_del_tpl_info_cb);
       break;
 
-    case FP_ENROLL_EXIT:
+    case MAFP_ENROLL_EXIT:
       mafp_pwr_btn_shield_on (self, 0);
       break;
     }
@@ -1397,7 +1397,7 @@ fp_verify_get_image_cb (FpiDeviceMafpmoc    *self,
 {
   g_autoptr(GError) local_error = NULL;
   FpDevice *dev = FP_DEVICE (self);
-  FpVerifyState nextState = FP_VERIFY_GET_IMAGE;
+  MapfVerifyState nextState = MAPF_VERIFY_GET_IMAGE;
 
   if (error)
     {
@@ -1417,16 +1417,16 @@ fp_verify_get_image_cb (FpiDeviceMafpmoc    *self,
       fp_dbg ("wait finger down state %d", resp->result);
       if (resp->result == MAFP_RE_GET_IMAGE_SUCCESS)
         {
-          nextState = FP_VERIFY_GENERATE_FEATURE;
+          nextState = MAPF_VERIFY_GENERATE_FEATURE;
         }
       else if (resp->result == MAFP_RE_GET_IMAGE_NONE)
         {
           self->capture_cnt++;
           fp_dbg ("self->capture_cnt %d", self->capture_cnt);
           if (self->capture_cnt > MAFP_IMAGE_ERR_TRRIGER)
-            nextState = FP_VERIFY_REFRESH_INT_PARA;
+            nextState = MAPF_VERIFY_REFRESH_INT_PARA;
           else
-            nextState = FP_VERIFY_DETECT_MODE;
+            nextState = MAPF_VERIFY_DETECT_MODE;
         }
     }
   else if (self->press_state == MAFP_PRESS_WAIT_UP)
@@ -1434,13 +1434,13 @@ fp_verify_get_image_cb (FpiDeviceMafpmoc    *self,
       fp_dbg ("wait finger up state %d", resp->result);
       if (resp->result == MAFP_RE_GET_IMAGE_SUCCESS)
         {
-          nextState = FP_VERIFY_GET_IMAGE;
+          nextState = MAPF_VERIFY_GET_IMAGE;
         }
       else if (resp->result == MAFP_RE_GET_IMAGE_NONE)
         {
           self->press_state = MAFP_PRESS_WAIT_DOWN;
           fpi_device_report_finger_status (dev, FP_FINGER_STATUS_NONE | FP_FINGER_STATUS_NEEDED);
-          nextState = FP_VERIFY_CHECK_INT_PARA;
+          nextState = MAPF_VERIFY_CHECK_INT_PARA;
         }
     }
 
@@ -1463,12 +1463,12 @@ fp_verify_gen_feature_cb (FpiDeviceMafpmoc    *self,
     {
       self->enroll_identify_index = 0;
       self->press_state = MAFP_PRESS_WAIT_UP;
-      fpi_ssm_jump_to_state (self->task_ssm, FP_VERIFY_SEARCH_STEP);
+      fpi_ssm_jump_to_state (self->task_ssm, MAPF_VERIFY_SEARCH_STEP);
     }
   else
     {
       self->press_state = MAFP_PRESS_WAIT_UP;
-      fpi_ssm_jump_to_state (self->task_ssm, FP_VERIFY_GET_IMAGE);
+      fpi_ssm_jump_to_state (self->task_ssm, MAPF_VERIFY_GET_IMAGE);
     }
 }
 
@@ -1481,7 +1481,7 @@ mafp_scl_ctl_cb (FpiUsbTransfer *transfer,
   if (error)
     fp_dbg ("control transfer out fail, %s", error->message);
 
-  fpi_ssm_jump_to_state (transfer->ssm, FP_VERIFY_EXIT);
+  fpi_ssm_jump_to_state (transfer->ssm, MAPF_VERIFY_EXIT);
 }
 
 static void
@@ -1551,7 +1551,7 @@ fp_verify_get_tpl_info_cb (FpiDeviceMafpmoc    *self,
       mafp_sensor_control (self, 0x8C, 0x00, mafp_scl_ctl_cb, NULL, 0);
       return;
     }
-  fpi_ssm_jump_to_state (self->task_ssm, FP_VERIFY_EXIT);
+  fpi_ssm_jump_to_state (self->task_ssm, MAPF_VERIFY_EXIT);
 }
 
 static void
@@ -1571,7 +1571,7 @@ fp_verify_search_step_cb (FpiDeviceMafpmoc    *self,
   if (resp->result == MAFP_SUCCESS)
     {
       fp_dbg ("identify ok, search_id: %d", self->search_id);
-      fpi_ssm_jump_to_state (self->task_ssm, FP_VERIFY_GET_TEMPLATE_INFO);
+      fpi_ssm_jump_to_state (self->task_ssm, MAPF_VERIFY_GET_TEMPLATE_INFO);
     }
   else
     {
@@ -1582,12 +1582,12 @@ fp_verify_search_step_cb (FpiDeviceMafpmoc    *self,
           self->enroll_identify_index++;
           if (self->enroll_identify_index < prints->len)
             {
-              fpi_ssm_jump_to_state (self->task_ssm, FP_VERIFY_SEARCH_STEP);
+              fpi_ssm_jump_to_state (self->task_ssm, MAPF_VERIFY_SEARCH_STEP);
               return;
             }
         }
       self->search_id = G_MAXUINT16;
-      fpi_ssm_jump_to_state (self->task_ssm, FP_VERIFY_GET_TEMPLATE_INFO);
+      fpi_ssm_jump_to_state (self->task_ssm, MAPF_VERIFY_GET_TEMPLATE_INFO);
     }
 }
 
@@ -1614,7 +1614,7 @@ mafp_get_startup_result_cb (FpiUsbTransfer *transfer,
         {
           self->search_id = transfer->buffer[2] * 256 + transfer->buffer[1];
           usleep (1000 * 1000);
-          fpi_ssm_jump_to_state (transfer->ssm, FP_VERIFY_GET_TEMPLATE_INFO);
+          fpi_ssm_jump_to_state (transfer->ssm, MAPF_VERIFY_GET_TEMPLATE_INFO);
           return;
         }
     }
@@ -1658,7 +1658,7 @@ fp_verify_int_refresh_cb (FpiDeviceMafpmoc    *self,
       return;
     }
   self->capture_cnt = 0;
-  fpi_ssm_jump_to_state (self->task_ssm, FP_VERIFY_GET_IMAGE);
+  fpi_ssm_jump_to_state (self->task_ssm, MAPF_VERIFY_GET_IMAGE);
 }
 
 static void
@@ -1686,7 +1686,7 @@ fp_verify_disable_int_cb (FpiUsbTransfer *transfer,
       fpi_ssm_mark_failed (transfer->ssm, g_steal_pointer (&error));
       return;
     }
-  fpi_ssm_jump_to_state (transfer->ssm, FP_VERIFY_GET_IMAGE);
+  fpi_ssm_jump_to_state (transfer->ssm, MAPF_VERIFY_GET_IMAGE);
 }
 
 static void
@@ -1702,7 +1702,7 @@ fp_verify_wait_int_cb (FpiUsbTransfer *transfer,
       fp_dbg ("code %d", error->code);
       if (error->code == G_USB_DEVICE_ERROR_TIMED_OUT)
         {
-          fpi_ssm_jump_to_state (self->task_ssm, FP_VERIFY_GET_IMAGE);
+          fpi_ssm_jump_to_state (self->task_ssm, MAPF_VERIFY_GET_IMAGE);
           g_clear_error (&error);
           return;
         }
@@ -1747,64 +1747,64 @@ fp_verify_sm_run_state (FpiSsm *ssm, FpDevice *device)
 
   switch(fpi_ssm_get_cur_state (ssm))
     {
-    case FP_VERIFY_PWR_BTN_SHIELD_ON:
+    case MAPF_VERIFY_PWR_BTN_SHIELD_ON:
       mafp_pwr_btn_shield_on (self, 1);
       break;
 
-    case FP_VERIFY_TEMPLATE_TABLE:
+    case MAPF_VERIFY_TEMPLATE_TABLE:
       para[0] = 0; /* page no. */
       mafp_sensor_cmd (self, MOC_CMD_GET_TEMPLATE_TABLE, (const uint8_t *) &para, 1, fp_verify_tpl_table_cb);
       break;
 
-    case FP_VERIFY_GET_STARTUP_RESULT:
+    case MAPF_VERIFY_GET_STARTUP_RESULT:
       mafp_sensor_control (self, 0x8D, 0x00, mafp_get_startup_result_cb, NULL, 0);
       break;
 
-    case FP_VERIFY_GET_IMAGE:
+    case MAPF_VERIFY_GET_IMAGE:
       mafp_sensor_cmd (self, MOC_CMD_GET_IMAGE, NULL, 0, fp_verify_get_image_cb);
       break;
 
-    case FP_VERIFY_CHECK_INT_PARA:
+    case MAPF_VERIFY_CHECK_INT_PARA:
       para[0] = MAFP_SLEEP_INT_CHECK;
       mafp_sensor_cmd (self, MOC_CMD_SLEEP, para, 1, fp_verify_int_check_cb);
       break;
 
-    case FP_VERIFY_DETECT_MODE:
+    case MAPF_VERIFY_DETECT_MODE:
       para[0] = MAFP_SLEEP_INT_WAIT;
       mafp_sensor_cmd (self, MOC_CMD_SLEEP, para, 1, fp_verify_int_detect_cb);
       break;
 
-    case FP_VERIFY_ENABLE_INT:
+    case MAPF_VERIFY_ENABLE_INT:
       mafp_sensor_control (self, 0x89, 1, fp_verify_enable_int_cb, NULL, 0);
       break;
 
-    case FP_VERIFY_WAIT_INT:
+    case MAPF_VERIFY_WAIT_INT:
       fp_verify_wait_int (self);
       break;
 
-    case FP_VERIFY_DISBALE_INT:
+    case MAPF_VERIFY_DISBALE_INT:
       mafp_sensor_control (self, 0x89, 0, fp_verify_disable_int_cb, NULL, 0);
       break;
 
-    case FP_VERIFY_REFRESH_INT_PARA:
+    case MAPF_VERIFY_REFRESH_INT_PARA:
       fp_dbg ("refresh param");
       para[0] = MAFP_SLEEP_INT_REFRESH;
       mafp_sensor_cmd (self, MOC_CMD_SLEEP, para, 1, fp_verify_int_refresh_cb);
       break;
 
-    case FP_VERIFY_GENERATE_FEATURE:
+    case MAPF_VERIFY_GENERATE_FEATURE:
       para[0] = 1;  /* buffer id */
       mafp_sensor_cmd (self, MOC_CMD_GEN_FEATURE, (const uint8_t *) &para, 1, fp_verify_gen_feature_cb);
       break;
 
-    case FP_VERIFY_SEARCH_STEP:
+    case MAPF_VERIFY_SEARCH_STEP:
       if (fpi_device_get_current_action (device) == FPI_DEVICE_ACTION_VERIFY)
         {
           fpi_device_get_verify_data (device, &print);
           if (!print)
             {
               self->search_id = G_MAXUINT16;
-              fpi_ssm_jump_to_state (self->task_ssm, FP_VERIFY_GET_TEMPLATE_INFO);
+              fpi_ssm_jump_to_state (self->task_ssm, MAPF_VERIFY_GET_TEMPLATE_INFO);
               break;
             }
         }
@@ -1814,7 +1814,7 @@ fp_verify_sm_run_state (FpiSsm *ssm, FpDevice *device)
           if (!prints || prints->len == 0)
             {
               self->search_id = G_MAXUINT16;
-              fpi_ssm_jump_to_state (self->task_ssm, FP_VERIFY_GET_TEMPLATE_INFO);
+              fpi_ssm_jump_to_state (self->task_ssm, MAPF_VERIFY_GET_TEMPLATE_INFO);
               break;
             }
           print = g_ptr_array_index (prints, self->enroll_identify_index);
@@ -1826,7 +1826,7 @@ fp_verify_sm_run_state (FpiSsm *ssm, FpDevice *device)
       mafp_sensor_cmd (self, MOC_CMD_MATCH_WITHFID, (const uint8_t *) &para, 2, fp_verify_search_step_cb);
       break;
 
-    case FP_VERIFY_GET_TEMPLATE_INFO:
+    case MAPF_VERIFY_GET_TEMPLATE_INFO:
       if (self->search_id == G_MAXUINT16)
         {
           mafp_cmd_response_t resp;
@@ -1841,7 +1841,7 @@ fp_verify_sm_run_state (FpiSsm *ssm, FpDevice *device)
         }
       break;
 
-    case FP_VERIFY_EXIT:
+    case MAPF_VERIFY_EXIT:
       mafp_pwr_btn_shield_on (self, 0);
       break;
     }
@@ -1909,7 +1909,7 @@ fp_list_tpl_table_cb (FpiDeviceMafpmoc    *self,
 
       if (self->templates->total_num == 0)
         {
-          fpi_ssm_jump_to_state (self->task_ssm, FP_LIST_STATES);
+          fpi_ssm_jump_to_state (self->task_ssm, MAPF_LIST_STATES);
           return;
         }
       fpi_ssm_next_state (self->task_ssm);
@@ -1950,7 +1950,7 @@ fp_list_get_tpl_info_cb (FpiDeviceMafpmoc    *self,
     }
   if (++self->templates->index < self->templates->total_num)
     {
-      fpi_ssm_jump_to_state (self->task_ssm, FP_LIST_GET_TEMPLATE_INFO);
+      fpi_ssm_jump_to_state (self->task_ssm, MAPF_LIST_GET_TEMPLATE_INFO);
       return;
     }
   fpi_ssm_next_state (self->task_ssm);
@@ -1964,12 +1964,12 @@ fp_list_run_state (FpiSsm *ssm, FpDevice *device)
 
   switch (fpi_ssm_get_cur_state (ssm))
     {
-    case FP_LIST_TEMPLATE_TABLE:
+    case MAPF_LIST_TEMPLATE_TABLE:
       para[0] = 0;  /* page no. */
       mafp_sensor_cmd (self, MOC_CMD_GET_TEMPLATE_TABLE, (const uint8_t *) &para, 1, fp_list_tpl_table_cb);
       break;
 
-    case FP_LIST_GET_TEMPLATE_INFO:
+    case MAPF_LIST_GET_TEMPLATE_INFO:
       para[0] = (self->templates->total_list[self->templates->index].id >> 8) & 0xff; /* fp id high */
       para[1] = self->templates->total_list[self->templates->index].id & 0xff;        /* fp id low */
       mafp_sensor_cmd (self, MOC_CMD_GET_TEMPLATE_INFO, (const uint8_t *) &para, 2, fp_list_get_tpl_info_cb);
@@ -2028,7 +2028,7 @@ fp_delete_tpl_table_cb (FpiDeviceMafpmoc    *self,
     }
   if (!id_exist)
     {
-      fpi_ssm_jump_to_state (self->task_ssm, FP_DELETE_CLEAR_TEMPLATE_INFO);
+      fpi_ssm_jump_to_state (self->task_ssm, MAPF_DELETE_CLEAR_TEMPLATE_INFO);
       return;
     }
   fpi_ssm_next_state (self->task_ssm);
@@ -2134,24 +2134,24 @@ fp_delete_run_state (FpiSsm *ssm, FpDevice *device)
 
   switch (fpi_ssm_get_cur_state (ssm))
     {
-    case FP_DELETE_TEMPLATE_TABLE:
+    case MAPF_DELETE_TEMPLATE_TABLE:
       para[0] = 0;                             /* page no. */
       mafp_sensor_cmd (self, MOC_CMD_GET_TEMPLATE_TABLE, (const uint8_t *) &para, 1, fp_delete_tpl_table_cb);
       break;
 
-    case FP_DELETE_GET_TEMPLATE_INFO:
+    case MAPF_DELETE_GET_TEMPLATE_INFO:
       para[0] = (delete_tpl.id >> 8) & 0xff;   /* fp id high */
       para[1] = delete_tpl.id & 0xff;          /* fp id low */
       mafp_sensor_cmd (self, MOC_CMD_GET_TEMPLATE_INFO, (const uint8_t *) &para, 2, fp_delete_get_tpl_info_cb);
       break;
 
-    case FP_DELETE_CLEAR_TEMPLATE_INFO:
+    case MAPF_DELETE_CLEAR_TEMPLATE_INFO:
       para[0] = (delete_tpl.id >> 8) & 0xff;   /* fp id high */
       para[1] = delete_tpl.id & 0xff;          /* fp id low */
       mafp_sensor_cmd (self, MOC_CMD_SAVE_TEMPLATE_INFO, (const uint8_t *) &para, 130, fp_delete_clear_tpl_info_cb);
       break;
 
-    case FP_DELETE_TEMPLATE:
+    case MAPF_DELETE_TEMPLATE:
       para[0] = (delete_tpl.id >> 8) & 0xff;   /* tpl id high */
       para[1] = delete_tpl.id & 0xff;          /* tpl id low */
       para[2] = 0;                             /* range high */
@@ -2206,7 +2206,7 @@ fp_delete_all_run_state (FpiSsm *ssm, FpDevice *device)
 
   switch (fpi_ssm_get_cur_state (ssm))
     {
-    case FP_EMPTY_TEMPLATE:
+    case MAPF_EMPTY_TEMPLATE:
       mafp_sensor_cmd (self, MOC_CMD_EMPTY, NULL, 0, fp_delete_all_cb);
       break;
     }
@@ -2328,7 +2328,7 @@ mafp_init (FpDevice *device)
     fp_dbg ("device no storage");
 
   self->templates = g_new0 (mafp_templates_t, 1);
-  self->task_ssm = fpi_ssm_new (device, fp_init_run_state, FP_INIT_STATES);
+  self->task_ssm = fpi_ssm_new (device, fp_init_run_state, MAPF_INIT_STATES);
 
   if (!PRINT_SSM_DEBUG)
     fpi_ssm_silence_debug (self->task_ssm);
@@ -2350,8 +2350,8 @@ mafp_enroll (FpDevice *device)
   memset (self->templates, 0, sizeof (mafp_templates_t));
 
   self->task_ssm = fpi_ssm_new_full (device, fp_enroll_sm_run_state,
-                                     FP_ENROLL_STATES,
-                                     FP_ENROLL_EXIT,
+                                     MAFP_ENROLL_STATES,
+                                     MAFP_ENROLL_EXIT,
                                      "enroll");
 
   if (!PRINT_SSM_DEBUG)
@@ -2372,8 +2372,8 @@ mafp_verify_identify (FpDevice *device)
   g_clear_object (&self->identify_new_print);
 
   self->task_ssm = fpi_ssm_new_full (device, fp_verify_sm_run_state,
-                                     FP_VERIFY_STATES,
-                                     FP_VERIFY_EXIT,
+                                     MAPF_VERIFY_STATES,
+                                     MAPF_VERIFY_EXIT,
                                      "verify");
 
   if (!PRINT_SSM_DEBUG)
@@ -2389,7 +2389,7 @@ mafp_template_list (FpDevice *device)
   memset (self->templates, 0, sizeof (mafp_templates_t));
   self->templates->list = g_ptr_array_new_with_free_func (g_object_unref);
 
-  self->task_ssm = fpi_ssm_new (device, fp_list_run_state, FP_LIST_STATES);
+  self->task_ssm = fpi_ssm_new (device, fp_list_run_state, MAPF_LIST_STATES);
   if (!PRINT_SSM_DEBUG)
     fpi_ssm_silence_debug (self->task_ssm);
   fpi_ssm_start (self->task_ssm, fp_list_ssm_done);
@@ -2400,7 +2400,7 @@ mafp_template_delete (FpDevice *device)
 {
   FpiDeviceMafpmoc *self = FPI_DEVICE_MAFPMOC (device);
 
-  self->task_ssm = fpi_ssm_new (device, fp_delete_run_state, FP_DELETE_STATES);
+  self->task_ssm = fpi_ssm_new (device, fp_delete_run_state, MAPF_DELETE_STATES);
   if (!PRINT_SSM_DEBUG)
     fpi_ssm_silence_debug (self->task_ssm);
   fpi_ssm_start (self->task_ssm, fp_delete_ssm_done);
@@ -2411,7 +2411,7 @@ mafp_template_delete_all (FpDevice *device)
 {
   FpiDeviceMafpmoc *self = FPI_DEVICE_MAFPMOC (device);
 
-  self->task_ssm = fpi_ssm_new (device, fp_delete_all_run_state, FP_EMPTY_STATES);
+  self->task_ssm = fpi_ssm_new (device, fp_delete_all_run_state, MAPF_EMPTY_STATES);
   if (!PRINT_SSM_DEBUG)
     fpi_ssm_silence_debug (self->task_ssm);
   fpi_ssm_start (self->task_ssm, fp_delete_all_ssm_done);
