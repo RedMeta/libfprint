@@ -663,13 +663,15 @@ fp_init_ssm_done (FpiSsm *ssm, FpDevice *dev, GError *error)
 {
   FpiDeviceMafpmoc *self = FPI_DEVICE_MAFPMOC (dev);
 
+  self->task_ssm = NULL;
+
   if (error)
     {
       fp_dbg ("%d %s", error->code, error->message);
       fpi_device_open_complete (dev, g_steal_pointer (&error));
       return;
     }
-  self->task_ssm = NULL;
+
   fpi_device_open_complete (dev, NULL);
 }
 
@@ -1364,17 +1366,18 @@ fp_enroll_ssm_done (FpiSsm *ssm, FpDevice *dev, GError *error)
   FpiDeviceMafpmoc *self = FPI_DEVICE_MAFPMOC (dev);
   FpPrint *print = NULL;
 
+  self->task_ssm = NULL;
+
   if (error)
     {
       fp_dbg ("enroll done fail");
-      fpi_device_enroll_complete (dev, NULL, error);
+      fpi_device_enroll_complete (dev, NULL, g_steal_pointer (&error));
       return;
     }
-  fp_dbg ("enroll completed");
 
+  fp_dbg ("enroll completed");
   fpi_device_get_enroll_data (dev, &print);
   fpi_device_enroll_complete (dev, g_object_ref (print), NULL);
-  self->task_ssm = NULL;
 }
 
 
@@ -1862,6 +1865,8 @@ fp_verify_ssm_done (FpiSsm *ssm, FpDevice *dev, GError *error)
   fp_dbg ("verify completed");
   FpiDeviceMafpmoc *self = FPI_DEVICE_MAFPMOC (dev);
 
+  self->task_ssm = NULL;
+
   if (error && error->domain == FP_DEVICE_RETRY)
     {
       if (fpi_device_get_current_action (dev) == FPI_DEVICE_ACTION_VERIFY)
@@ -1882,7 +1887,6 @@ fp_verify_ssm_done (FpiSsm *ssm, FpDevice *dev, GError *error)
                                   self->enroll_dupl_del_state ? self->identify_new_print : NULL, NULL);
       fpi_device_identify_complete (dev, error);
     }
-  self->task_ssm = NULL;
 }
 
 static void
@@ -1977,6 +1981,8 @@ fp_list_ssm_done (FpiSsm *ssm, FpDevice *dev, GError *error)
 {
   FpiDeviceMafpmoc *self = FPI_DEVICE_MAFPMOC (dev);
 
+  self->task_ssm = NULL;
+
   if (error)
     {
       fp_dbg ("list tpl fail");
@@ -1984,8 +1990,8 @@ fp_list_ssm_done (FpiSsm *ssm, FpDevice *dev, GError *error)
       fpi_device_list_complete (dev, NULL, g_steal_pointer (&error));
       return;
     }
+
   fpi_device_list_complete (FP_DEVICE (self), g_steal_pointer (&self->templates->list), NULL);
-  self->task_ssm = NULL;
 }
 
 static void
@@ -2159,15 +2165,14 @@ fp_delete_ssm_done (FpiSsm *ssm, FpDevice *dev, GError *error)
 {
   FpiDeviceMafpmoc *self = FPI_DEVICE_MAFPMOC (dev);
 
-  if (error)
-    {
-      fp_dbg ("delete tpl fail");
-      fpi_device_delete_complete (dev, error);
-      return;
-    }
-  fp_dbg ("delete tpl success");
-  fpi_device_delete_complete (dev, NULL);
   self->task_ssm = NULL;
+
+  if (error)
+    fp_dbg ("delete tpl fail: %s", error->message);
+  else
+    fp_dbg ("delete tpl success");
+
+  fpi_device_delete_complete (dev, g_steal_pointer (&error));
 }
 
 static void
@@ -2211,15 +2216,14 @@ fp_delete_all_ssm_done (FpiSsm *ssm, FpDevice *dev, GError *error)
 {
   FpiDeviceMafpmoc *self = FPI_DEVICE_MAFPMOC (dev);
 
-  if (error)
-    {
-      fp_dbg ("delete all fail");
-      fpi_device_clear_storage_complete (dev, g_steal_pointer (&error));
-      return;
-    }
-  fp_dbg ("delete all success");
-  fpi_device_clear_storage_complete (dev, NULL);
   self->task_ssm = NULL;
+
+  if (error)
+    fp_dbg ("delete all fail: %s", error->message);
+  else
+    fp_dbg ("delete all success");
+
+  fpi_device_clear_storage_complete (dev, g_steal_pointer (&error));
 }
 
 static void
