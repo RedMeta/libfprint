@@ -1943,7 +1943,7 @@ fp_list_get_tpl_info_cb (FpiDeviceMafpmoc    *self,
       if (resp->tpl_info.uid[0] == 'F' && resp->tpl_info.uid[1] == 'P')
         memcpy (template->uid, resp->tpl_info.uid, sizeof (resp->tpl_info.uid));
       else
-        strncpy (template->uid, "NOT A FPRINT PRINT", sizeof (resp->tpl_info.uid));
+        strncpy (template->uid, "NOT-A-FPRINT-PRINT", sizeof (resp->tpl_info.uid));
 
       print = mafp_print_from_template (self, template);
       g_ptr_array_add (self->templates->list, g_object_ref_sink (print));
