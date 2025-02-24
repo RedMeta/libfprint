@@ -866,7 +866,8 @@ fp_enroll_get_tpl_info_cb (FpiDeviceMafpmoc    *self,
           print = mafp_print_from_template (self, &tpl);
 
           mafp_mark_failed (dev, self->task_ssm, FP_DEVICE_ERROR_DATA_DUPLICATE,
-                            "Finger was already enrolled as '%s'", fp_print_get_description (print));
+                            "Finger was already enrolled as '%s'",
+                            fp_print_get_description (print));
           return;
         }
     }
