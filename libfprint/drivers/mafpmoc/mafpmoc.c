@@ -205,7 +205,7 @@ mafp_clean_usb_bulk_in (FpDevice *device)
 {
   g_autoptr(FpiUsbTransfer) transfer = fpi_usb_transfer_new (device);
   fpi_usb_transfer_fill_bulk (transfer, MAFP_EP_BULK_IN, MAFP_USB_BUFFER_SIZE);
-  GError *error = NULL;
+  g_autoptr(GError) error = NULL;
 
   fp_dbg ("bulk clean");
   if (!fpi_usb_transfer_submit_sync (transfer, 200, &error))
@@ -749,6 +749,7 @@ fp_enroll_get_image_cb (FpiDeviceMafpmoc    *self,
                         mafp_cmd_response_t *resp,
                         GError              *error)
 {
+  g_autoptr(GError) local_error = NULL;
   FpDevice *dev = FP_DEVICE (self);
   FpEnrollState nextState = FP_ENROLL_VERIFY_GET_IMAGE;
 
@@ -758,12 +759,9 @@ fp_enroll_get_image_cb (FpiDeviceMafpmoc    *self,
       return;
     }
 
-  if (fpi_device_action_is_cancelled (dev))
+  if (g_cancellable_set_error_if_cancelled (fpi_device_get_cancellable (dev),
+                                            &local_error))
     {
-      GError *local_error = NULL;
-
-      g_cancellable_set_error_if_cancelled (fpi_device_get_cancellable (dev),
-                                            &local_error);
       fpi_ssm_mark_failed (self->task_ssm, g_steal_pointer (&local_error));
       return;
     }
@@ -1087,10 +1085,9 @@ mafp_pwr_btn_shield_on_cb (FpiUsbTransfer *transfer,
 static void
 mafp_pwr_btn_shield_on (FpiDeviceMafpmoc *self, int on)
 {
-  GError *pre_error = fpi_ssm_get_error (self->task_ssm);
+  g_autoptr(GError) pre_error = fpi_ssm_get_error (self->task_ssm);
 
-  if (pre_error && pre_error->code == G_USB_DEVICE_ERROR_FAILED &&
-      g_str_equal (g_quark_to_string (pre_error->domain), "g-usb-device-error-quark"))
+  if (g_error_matches (pre_error, G_USB_DEVICE_ERROR, G_USB_DEVICE_ERROR_FAILED))
     {
       fpi_ssm_next_state (self->task_ssm);
       return;
@@ -1398,6 +1395,7 @@ fp_verify_get_image_cb (FpiDeviceMafpmoc    *self,
                         mafp_cmd_response_t *resp,
                         GError              *error)
 {
+  g_autoptr(GError) local_error = NULL;
   FpDevice *dev = FP_DEVICE (self);
   FpVerifyState nextState = FP_VERIFY_GET_IMAGE;
 
@@ -1407,12 +1405,9 @@ fp_verify_get_image_cb (FpiDeviceMafpmoc    *self,
       return;
     }
 
-  if (fpi_device_action_is_cancelled (dev))
+  if (g_cancellable_set_error_if_cancelled (fpi_device_get_cancellable (dev),
+                                            &local_error))
     {
-      GError *local_error = NULL;
-
-      g_cancellable_set_error_if_cancelled (fpi_device_get_cancellable (dev),
-                                            &local_error);
       fpi_ssm_mark_failed (self->task_ssm, g_steal_pointer (&local_error));
       return;
     }
@@ -1494,6 +1489,7 @@ fp_verify_get_tpl_info_cb (FpiDeviceMafpmoc    *self,
                            mafp_cmd_response_t *resp,
                            GError              *error)
 {
+  g_autoptr(GError) local_error = NULL;
   FpDevice *dev = FP_DEVICE (self);
   FpPrint *new_scan = NULL;
   FpPrint *matching = NULL;
@@ -1504,12 +1500,9 @@ fp_verify_get_tpl_info_cb (FpiDeviceMafpmoc    *self,
       return;
     }
 
-  if (fpi_device_action_is_cancelled (dev))
+  if (g_cancellable_set_error_if_cancelled (fpi_device_get_cancellable (dev),
+                                            &local_error))
     {
-      GError *local_error = NULL;
-
-      g_cancellable_set_error_if_cancelled (fpi_device_get_cancellable (dev),
-                                            &local_error);
       fpi_ssm_mark_failed (self->task_ssm, g_steal_pointer (&local_error));
       return;
     }
@@ -2308,7 +2301,7 @@ mafp_init (FpDevice *device)
 {
   fp_dbg ("mafp_init");
   FpiDeviceMafpmoc *self = FPI_DEVICE_MAFPMOC (device);
-  GError *error = NULL;
+  g_autoptr(GError) error = NULL;
   uint64_t driver_data;
 
   driver_data = fpi_device_get_driver_data (device);
@@ -2317,7 +2310,7 @@ mafp_init (FpDevice *device)
   if (!g_usb_device_reset (fpi_device_get_usb_device (device), &error))
     {
       fp_dbg ("g_usb_device_reset err: %s", error->message);
-      fpi_device_open_complete (FP_DEVICE (self), error);
+      fpi_device_open_complete (FP_DEVICE (self), g_steal_pointer (&error));
       return;
     }
 
@@ -2325,7 +2318,7 @@ mafp_init (FpDevice *device)
   fp_dbg ("g_usb_device_claim_interface");
   if (!g_usb_device_claim_interface (fpi_device_get_usb_device (device), 0, 0, &error))
     {
-      fpi_device_open_complete (FP_DEVICE (self), error);
+      fpi_device_open_complete (FP_DEVICE (self), g_steal_pointer (&error));
       return;
     }
 
