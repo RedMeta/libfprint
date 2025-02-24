@@ -1949,17 +1949,18 @@ fp_list_get_tpl_info_cb (FpiDeviceMafpmoc    *self,
 
   if (resp->result == MAFP_SUCCESS)
     {
+      FpPrint *print;
+      mafp_template_t *template = &self->templates->total_list[self->templates->index];
+
       fp_dbg ("tpl_info: %s", resp->tpl_info.uid);
 
       if (resp->tpl_info.uid[0] == 'F' && resp->tpl_info.uid[1] == 'P')
-        {
-          FpPrint *print;
-          mafp_template_t *template = &self->templates->total_list[self->templates->index];
+        memcpy (template->uid, resp->tpl_info.uid, sizeof (resp->tpl_info.uid));
+      else
+        strncpy (template->uid, "NOT A FPRINT PRINT", sizeof (resp->tpl_info.uid));
 
-          memcpy (template->uid, resp->tpl_info.uid, sizeof (resp->tpl_info.uid));
-          print = mafp_print_from_template (self, template);
-          g_ptr_array_add (self->templates->list, g_object_ref_sink (print));
-        }
+      print = mafp_print_from_template (self, template);
+      g_ptr_array_add (self->templates->list, g_object_ref_sink (print));
     }
   if (++self->templates->index < self->templates->total_num)
     {
