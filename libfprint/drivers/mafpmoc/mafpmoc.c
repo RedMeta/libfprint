@@ -1555,6 +1555,7 @@ fp_verify_get_tpl_info_cb (FpiDeviceMafpmoc    *self,
             }
         }
     }
+
   self->identify_match_print = matching;
   self->identify_new_print = new_scan;
 
@@ -1864,6 +1865,8 @@ fp_verify_ssm_done (FpiSsm *ssm, FpDevice *dev, GError *error)
 {
   fp_dbg ("verify completed");
   FpiDeviceMafpmoc *self = FPI_DEVICE_MAFPMOC (dev);
+  g_autoptr(FpPrint) new_print = g_steal_pointer (&self->identify_new_print);
+  FpPrint *match_print = g_steal_pointer (&self->identify_match_print);
 
   self->task_ssm = NULL;
 
@@ -1873,19 +1876,29 @@ fp_verify_ssm_done (FpiSsm *ssm, FpDevice *dev, GError *error)
         fpi_device_verify_report (dev, FPI_MATCH_ERROR, NULL, g_steal_pointer (&error));
       else
         fpi_device_identify_report (dev, NULL, NULL, g_steal_pointer (&error));
+
+      return;
+    }
+
+  if (error)
+    {
+      fpi_device_action_error (dev, g_steal_pointer (&error));
+      return;
     }
 
   if (fpi_device_get_current_action (dev) == FPI_DEVICE_ACTION_VERIFY)
     {
-      fpi_device_verify_report (dev, self->identify_match_print ? FPI_MATCH_SUCCESS : FPI_MATCH_FAIL,
-                                self->identify_new_print, NULL);
-      fpi_device_verify_complete (dev, error);
+      fpi_device_verify_report (dev, match_print ? FPI_MATCH_SUCCESS : FPI_MATCH_FAIL,
+                                g_steal_pointer (&new_print), NULL);
+      fpi_device_verify_complete (dev, NULL);
     }
   else
     {
-      fpi_device_identify_report (dev, self->identify_match_print,
-                                  self->enroll_dupl_del_state ? self->identify_new_print : NULL, NULL);
-      fpi_device_identify_complete (dev, error);
+      fpi_device_identify_report (dev, match_print,
+                                  self->enroll_dupl_del_state ?
+                                  g_steal_pointer (&new_print) : NULL,
+                                  NULL);
+      fpi_device_identify_complete (dev, NULL);
     }
 }
 
@@ -2369,7 +2382,8 @@ mafp_verify_identify (FpDevice *device)
   self->press_state = MAFP_PRESS_WAIT_UP;
   self->capture_cnt = 0;
   self->identify_match_print = NULL;
-  self->identify_new_print = NULL;
+  g_clear_object (&self->identify_new_print);
+
   self->task_ssm = fpi_ssm_new_full (device, fp_verify_sm_run_state,
                                      FP_VERIFY_STATES,
                                      FP_VERIFY_EXIT,
